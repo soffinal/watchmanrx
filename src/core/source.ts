@@ -83,6 +83,41 @@ export abstract class Source<VALUE>
     return transform(this);
   }
   /**
+   * A terminal operation that collect "n" values or one value sync/async
+   * @param n the number of requested values
+   * @param options if options.sync is true then it return values synchronously
+   * @return values or promise of values or value or promise of value
+   */
+  collect<N extends number = 1, SYNC extends boolean = false>(
+    n = 1 as N,
+    options?: Source.CollectOptions<SYNC>,
+  ): N extends 1
+    ? SYNC extends false
+      ? Promise<VALUE | Empty>
+      : VALUE | Empty
+    : SYNC extends false
+      ? Promise<VALUE[]>
+      : VALUE[] {
+    let count = n;
+    const values: VALUE[] = [];
+
+    if (options?.sync) {
+      for (const value of this) {
+        values.push(value);
+        if (--count === 0) break;
+      }
+      return (n > 1 ? values : (values[0] ?? EMPTY)) as never;
+    } else {
+      return new Promise(async (resolve) => {
+        for await (const value of this) {
+          values.push(value);
+          if (--count === 0) break;
+        }
+        resolve(n > 1 ? values : (values[0] ?? EMPTY));
+      }) as never;
+    }
+  }
+  /**
    * Wraps any {@link Consumable} in a `Source` proxy, giving it access to `pipe`
    * and async iteration without changing its consumption behaviour.
    * and it's used for wrapping a complex sources like {@link Stream} to encapsulate behaviors and get a readonly source.
@@ -96,6 +131,7 @@ export abstract class Source<VALUE>
 
 export namespace Source {
   export type AnySource = Source<any>;
+  export type CollectOptions<SYNC extends boolean> = { sync?: SYNC };
 }
 
 class SourceProxy<VALUE> extends Source<VALUE> {

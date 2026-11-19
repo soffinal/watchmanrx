@@ -3,6 +3,7 @@ import { describe, it, expect } from "bun:test";
 import { Source } from "./source";
 import { Stream } from "./stream";
 import { fromIterable } from "../sources/iterable-source";
+import { EMPTY } from "./consts";
 
 describe("Source", () => {
   describe("pipe", () => {
@@ -59,6 +60,38 @@ describe("Source", () => {
     });
   });
 
+  describe("collect values", () => {
+    it("must returns a single value on sync mode", () => {
+      const source = fromIterable([1, 2, 3]);
+      const value = source.collect(1, { sync: true });
+      expect(value).toBe(1);
+    });
+    it("must returns a single value on async mode", async () => {
+      const source = fromIterable([1, 2, 3]);
+      const value = await source.collect(1);
+      expect(value).toBe(1);
+    });
+    it("must returns EMPTY when requesting a single value sync", () => {
+      const source = fromIterable([]);
+      const value1 = source.collect(1, { sync: true });
+      expect(value1).toBe(EMPTY);
+    });
+    it("must returns EMPTY when requesting a single value async", async () => {
+      const source = fromIterable([]);
+      const value2 = await source.collect(1);
+      expect(value2).toBe(EMPTY);
+    });
+    it("must returns multiple values on sync mode", () => {
+      const source = fromIterable([1, 2, 3]);
+      const value = source.collect(3, { sync: true });
+      expect(value).toEqual([1, 2, 3]);
+    });
+    it("must returns multiple values on async mode", async () => {
+      const source = fromIterable([1, 2, 3]);
+      const value = await source.collect(2);
+      expect(value).toEqual([1, 2]);
+    });
+  });
   describe("Source.from", () => {
     it("wraps a consumable and exposes pipe", () => {
       const stream = new Stream<number>();

@@ -6,6 +6,7 @@
     "lib": ["ESNext", "DOM"],
     "outDir": "./dist",
     "rootDir": "./",
+    "types": ["bun"],
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -20,5 +21,11 @@
     "noEmit": true
   },
   "include": ["src/**/*", "index.ts"],
-  "exclude": ["node_modules", "dist", "build.ts", "src/profile.ts", "**/*.test.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build.ts",
+    "src/profile.ts",
+    "**/*.test.ts"
+  ]
 }
