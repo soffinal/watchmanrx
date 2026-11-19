@@ -816,6 +816,18 @@ for (const value of fromIterable([1, 2, 3]).pipe(map((v) => v * 2))) {
 }
 ```
 
+## `collect`
+
+Every `Source` has `collect`. so you can get values/value asynchronously or synchronously
+
+```typescript
+const value1 = await source.collect(1);
+const values1 = await source.collect(20);
+
+const value2 = source.collect(1, { sync: true });
+const values2 = source.collect(20, { sync: true });
+```
+
 ---
 
 ## License
