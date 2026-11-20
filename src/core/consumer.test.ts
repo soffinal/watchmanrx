@@ -1,5 +1,7 @@
+import {} from "bun";
 import { describe, it, expect, mock } from "bun:test";
 import { Consumer } from "./consumer";
+import { Stream } from "./stream";
 
 function collect<T>(setup: (consumer: Consumer<T>) => void): T[] {
   const results: T[] = [];
@@ -117,28 +119,36 @@ describe("Consumer", () => {
   describe("options", () => {
     it("calls init on construction and cleanup on termination", () => {
       const cleanup = mock((reason: string) => {});
-      const consumer = new Consumer<number>((self) => self.next(), { init: () => cleanup });
+      const consumer = new Consumer<number>((self) => self.next(), {
+        init: () => cleanup,
+      });
       consumer.terminate("complete");
       expect(cleanup).toHaveBeenCalledWith("complete");
     });
 
     it("calls next option when credit is granted with empty queue", () => {
       const onNext = mock(() => {});
-      const consumer = new Consumer<number>((self) => self.next(), { next: onNext });
+      const consumer = new Consumer<number>((self) => self.next(), {
+        next: onNext,
+      });
       consumer.next();
       expect(onNext).toHaveBeenCalled();
     });
 
     it("calls terminate option on termination", () => {
       const onTerminate = mock(() => {});
-      const consumer = new Consumer<number>((self) => self.next(), { terminate: onTerminate });
+      const consumer = new Consumer<number>((self) => self.next(), {
+        terminate: onTerminate,
+      });
       consumer.terminate("complete");
       expect(onTerminate).toHaveBeenCalledWith(consumer, "complete");
     });
 
     it("calls drain option when complete is called with queued values", () => {
       const onDrain = mock(() => {});
-      const consumer = new Consumer<number>((self, v) => self.next(), { drain: onDrain });
+      const consumer = new Consumer<number>((self, v) => self.next(), {
+        drain: onDrain,
+      });
       consumer.push(1);
       consumer.terminate("complete");
       expect(onDrain).toHaveBeenCalled();
@@ -167,6 +177,87 @@ describe("Consumer", () => {
       const consumer = new Consumer<number>(() => {});
       await consumer[Symbol.asyncDispose]();
       expect(consumer.status).toBe("complete");
+    });
+  });
+  describe("lifecycle events", () => {
+    it("$push emits every pushed value", () => {
+      const pushed: number[] = [];
+      const consumer = new Consumer<number>(() => {});
+      consumer.$push
+        .consume((c, v) => {
+          pushed.push(v);
+          c.next();
+        })
+        .next();
+
+      consumer.push(1).push(2);
+      expect(pushed).toEqual([1, 2]);
+    });
+
+    it("$next emits when the consumer pull (grant credit)", () => {
+      let count = 0;
+      const consumer = new Consumer<number>((c) => c.next());
+      consumer.$next
+        .consume((c) => {
+          count++;
+          c.next();
+        })
+        .next();
+
+      consumer.push(1).push(2);
+      consumer.next();
+
+      expect(count).toBe(2);
+    });
+
+    it("$terminate emits the reason on termination", () => {
+      const consumer = new Consumer<number>(() => {});
+      let reason: string | undefined;
+      consumer.$terminate
+        .consume((self, r) => {
+          reason = r;
+          self.next();
+        })
+        .next();
+      consumer.terminate("complete");
+      expect(reason).toBe("complete");
+    });
+
+    it("$terminate replays reason to late subscribers", () => {
+      const consumer = new Consumer<number>(() => {});
+      consumer.terminate("abort");
+      let reason: string | undefined;
+      consumer.$terminate
+        .consume((self, r) => {
+          reason = r;
+          self.next();
+        })
+        .next();
+
+      expect(reason).toBe("abort");
+    });
+    it("should have not a circular calls", () => {
+      const stream = new Stream<number>();
+      const values: number[] = [];
+      let nextCalls = 0;
+      const consumer = stream
+        .consume((c, v) => {
+          values.push(v);
+          c.next();
+        })
+        .next();
+
+      consumer.$next
+        .consume((c) => {
+          nextCalls++;
+          c.next();
+        })
+        .next();
+
+      stream.pushMany(1, 2, 3);
+
+      expect(values).toEqual([1, 2, 3]);
+      expect(nextCalls).toBe(3);
     });
   });
 });
