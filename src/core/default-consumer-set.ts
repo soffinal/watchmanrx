@@ -16,8 +16,20 @@ import { TerminateReason } from "./types";
 export class DefaultConsumerSet<VALUE> implements ConsumerSet<VALUE> {
   private _consumers?: Set<Consumer<VALUE>> | Consumer<VALUE>;
 
+  *[Symbol.iterator]() {
+    if (this._consumers instanceof Set) {
+      for (const consumer of this._consumers) {
+        yield consumer;
+      }
+    } else if (this._consumers) {
+      yield this._consumers;
+    }
+  }
+
   get size(): number {
-    return this._consumers instanceof Consumer ? 1 : (this._consumers?.size ?? 0);
+    return this._consumers instanceof Consumer
+      ? 1
+      : (this._consumers?.size ?? 0);
   }
 
   private _optimizePush(): void {
@@ -58,7 +70,8 @@ export class DefaultConsumerSet<VALUE> implements ConsumerSet<VALUE> {
       this._consumers = undefined;
     } else if (this._consumers instanceof Set) {
       this._consumers.delete(consumer);
-      if (this._consumers.size === 1) this._consumers = this._consumers.values().next().value!;
+      if (this._consumers.size === 1)
+        this._consumers = this._consumers.values().next().value!;
     }
     if (this.size < sizeBefore) {
       this._optimizePush();

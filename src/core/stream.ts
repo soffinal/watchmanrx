@@ -24,7 +24,10 @@ import { Consumable } from "./consumable";
  * stream.pushMany(1,2,3);
  * stream.terminate("complete");
  */
-export class Stream<VALUE> extends Source<VALUE> implements Disposable, AsyncDisposable, AsyncIterable<VALUE> {
+export class Stream<VALUE>
+  extends Source<VALUE>
+  implements Disposable, AsyncDisposable
+{
   private _options: Stream.Options<VALUE>;
   private _events: Stream.Events<VALUE>;
   private _consumerSet: ConsumerSet<VALUE>;
@@ -34,13 +37,15 @@ export class Stream<VALUE> extends Source<VALUE> implements Disposable, AsyncDis
 
   constructor(options?: Stream.Options<VALUE>) {
     super();
-    this._options = options ?? {};
+    this._options = { ...options };
     this._events = {};
 
-    this._consumerSet = this._options.consumerSetFactory?.() ?? new DefaultConsumerSet();
+    this._consumerSet =
+      this._options.consumerSetFactory?.() ?? new DefaultConsumerSet();
     this._status = "active";
 
-    if (this.status === "active") this._initCleanup = this._options?.init?.(this);
+    if (this.status === "active")
+      this._initCleanup = this._options?.init?.(this);
   }
   /** Terminates the stream with `"complete"` when used with the `await using` keyword. */
   async [Symbol.asyncDispose]() {
@@ -60,18 +65,34 @@ export class Stream<VALUE> extends Source<VALUE> implements Disposable, AsyncDis
   get options(): Stream.Options<VALUE> {
     return this._options;
   }
-  set options(options: Stream.Options<VALUE>) {
-    this._options = options;
+  set options(
+    options: Omit<Stream.Options<VALUE>, "consumerSetFactory" | "init">,
+  ) {
+    this._options = { ...options };
   }
-  getOption<NAME extends keyof Stream.Options<VALUE>>(name: NAME): Stream.Options<VALUE>[NAME] {
+  getOption<NAME extends keyof Stream.Options<VALUE>>(
+    name: NAME,
+  ): Stream.Options<VALUE>[NAME] {
     return this._options[name];
   }
-  setOption<NAME extends keyof Stream.Options<VALUE>>(name: NAME, value: Stream.Options<VALUE>[NAME]) {
+  setOption<
+    NAME extends keyof Omit<
+      Stream.Options<VALUE>,
+      "consumerSetFactory" | "init"
+    >,
+  >(
+    name: NAME,
+    value: Omit<Stream.Options<VALUE>, "consumerSetFactory" | "init">[NAME],
+  ) {
     this._options[name] = value;
   }
-  get consumersCount(): number {
-    return this._consumerSet?.size ?? 0;
+  /**
+   * The default implementation of {@link ConsumerSet}
+   */
+  get consumerSet(): ConsumerSet<VALUE> {
+    return this._consumerSet;
   }
+
   get status(): Stream.Status {
     return this._status;
   }
@@ -187,7 +208,10 @@ export class Stream<VALUE> extends Source<VALUE> implements Disposable, AsyncDis
    * @param options Consumer options including lifecycle hooks.
    * @returns  - {@link Consumer}
    */
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE> {
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE> {
     const { queueFactory, next, terminate, ...rest } = options ?? {};
 
     const consumer = new Consumer(handler, {
@@ -239,12 +263,13 @@ export class Stream<VALUE> extends Source<VALUE> implements Disposable, AsyncDis
    */
   terminate(reason: TerminateReason): this {
     this.push = EMPTY_THIS_FUNCTION;
-    this.consume = (handler, options) => new Consumer(handler, options).terminate(reason);
+    this.consume = (handler, options) =>
+      new Consumer(handler, options).terminate(reason);
 
     if (reason === "abort") {
       this.terminate = EMPTY_THIS_FUNCTION;
       this._status = "abort";
-    } else if (this.consumersCount) {
+    } else if (this._consumerSet.size) {
       this._status = "drain";
       this._options.drain?.(this);
       this._events.$drain?.push();
@@ -279,7 +304,10 @@ export class Stream<VALUE> extends Source<VALUE> implements Disposable, AsyncDis
    * @param consumable The upstream consumable to pull from.
    * @param options Optional stream options.
    */
-  static override from<VALUE>(consumable: Consumable<VALUE>, options?: Stream.Options<VALUE>): Stream<VALUE> {
+  static override from<VALUE>(
+    consumable: Consumable<VALUE>,
+    options?: Stream.Options<VALUE>,
+  ): Stream<VALUE> {
     const { firstConsumerJoin, next, terminate, ...rest } = options ?? {};
 
     let consumableConsumer: Consumer<VALUE>;
@@ -287,9 +315,12 @@ export class Stream<VALUE> extends Source<VALUE> implements Disposable, AsyncDis
     return new Stream({
       ...rest,
       firstConsumerJoin(stream, consumer) {
-        consumableConsumer = consumable.consume((_, value) => stream.push(value), {
-          terminate: (_, reason) => stream.terminate(reason),
-        });
+        consumableConsumer = consumable.consume(
+          (_, value) => stream.push(value),
+          {
+            terminate: (_, reason) => stream.terminate(reason),
+          },
+        );
         firstConsumerJoin?.(stream, consumer);
       },
 
@@ -311,13 +342,21 @@ export namespace Stream {
 
   export interface Options<VALUE> {
     consumerSetFactory?: () => ConsumerSet<VALUE>;
-    init?: (stream: Stream<VALUE>) => undefined | ((reason: TerminateReason) => void);
+    init?: (
+      stream: Stream<VALUE>,
+    ) => undefined | ((reason: TerminateReason) => void);
     push?: (stream: Stream<VALUE>, value: VALUE) => void;
     next?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
     consumerJoin?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
     consumerLeft?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
-    firstConsumerJoin?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
-    lastConsumerLeft?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
+    firstConsumerJoin?: (
+      stream: Stream<VALUE>,
+      consumer: Consumer<VALUE>,
+    ) => void;
+    lastConsumerLeft?: (
+      stream: Stream<VALUE>,
+      consumer: Consumer<VALUE>,
+    ) => void;
     drain?: (stream: Stream<VALUE>) => void;
     terminate?: (stream: Stream<VALUE>, reason: TerminateReason) => void;
   }
