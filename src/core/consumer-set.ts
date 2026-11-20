@@ -7,7 +7,7 @@ import { TerminateReason } from "./types";
  *
  * @template VALUE The type of values pushed to consumers.
  */
-export interface ConsumerSet<VALUE> {
+export interface ConsumerSet<VALUE> extends Iterable<Consumer<VALUE>> {
   readonly size: number;
   push(value: VALUE): void;
   add(consumer: Consumer<VALUE>): void;

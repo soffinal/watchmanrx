@@ -1,3 +1,4 @@
+import {} from "bun";
 import { describe, it, expect } from "bun:test";
 import { Stream } from "./stream";
 import { Consumer } from "./consumer";
@@ -223,11 +224,11 @@ describe("Stream", () => {
   describe("consumersCount", () => {
     it("tracks the number of active consumers", () => {
       const stream = new Stream<number>();
-      expect(stream.consumersCount).toBe(0);
+      expect(stream.consumerSet.size).toBe(0);
       const c = stream.consume((self) => self.next()).next();
-      expect(stream.consumersCount).toBe(1);
+      expect(stream.consumerSet.size).toBe(1);
       c.terminate("abort");
-      expect(stream.consumersCount).toBe(0);
+      expect(stream.consumerSet.size).toBe(0);
     });
   });
 

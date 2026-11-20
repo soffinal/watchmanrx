@@ -39,9 +39,12 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
   /** Optional cleanup function returned by the `init` option. */
   private _initCleanup?: Consumer.InitCleanup;
 
-  constructor(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>) {
+  constructor(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ) {
     this._handler = handler;
-    this._options = options ?? {};
+    this._options = { ...options };
     this._status = "active";
     this._queue = undefined;
     this._credit = 0;
@@ -74,27 +77,31 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
   get options(): Consumer.Options<VALUE> {
     return this._options;
   }
-  set options(options: Consumer.Options<VALUE>) {
-    this._options = options;
+  set options(options: Omit<Consumer.Options<VALUE>, "queueFactory" | "init">) {
+    this._options = { ...options };
   }
-  getOption<NAME extends keyof Consumer.Options<VALUE>>(name: NAME): Consumer.Options<VALUE>[NAME] {
+  getOption<NAME extends keyof Consumer.Options<VALUE>>(
+    name: NAME,
+  ): Consumer.Options<VALUE>[NAME] {
     return this._options[name];
   }
-  setOption<NAME extends keyof Consumer.Options<VALUE>>(name: NAME, value: Consumer.Options<VALUE>[NAME]) {
+  setOption<
+    NAME extends keyof Omit<Consumer.Options<VALUE>, "queueFactory" | "init">,
+  >(
+    name: NAME,
+    value: Omit<Consumer.Options<VALUE>, "queueFactory" | "init">[NAME],
+  ) {
     this._options[name] = value;
   }
   get status(): Consumer.Status {
     return this._status;
   }
-
   get queue(): Queue<VALUE> | undefined {
     return this._queue;
   }
-
   get credit(): number {
     return this._credit;
   }
-
   /**
    * Delivers a value to this consumer.
    * If credit is available and the queue is empty, the handler is called immediately.
@@ -107,7 +114,8 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
       this._handler(this, value);
       this._credit--;
     } else {
-      (this._queue ??= this._options.queueFactory?.() ?? new DefaultQueue()).enqueue(value);
+      (this._queue ??=
+        this._options.queueFactory?.() ?? new DefaultQueue()).enqueue(value);
     }
 
     return this;
@@ -200,7 +208,10 @@ export namespace Consumer {
   /** Possible lifecycle states of a consumer. */
   export type Status = "active" | "drain" | TerminateReason;
   /** The function called with each delivered value. */
-  export type Handler<VALUE> = (consumer: Consumer<VALUE>, value: VALUE) => void;
+  export type Handler<VALUE> = (
+    consumer: Consumer<VALUE>,
+    value: VALUE,
+  ) => void;
   /** Cleanup function returned by the `init` option, called on termination. */
   export type InitCleanup = (reason: TerminateReason) => void;
 
