@@ -2,6 +2,8 @@ import type { TerminateReason } from "./types";
 import { EMPTY, EMPTY_FUNCTION, EMPTY_THIS_FUNCTION } from "./consts";
 import { DefaultQueue } from "./default-queue";
 import { Queue } from "./queue";
+import { Stream } from "./stream";
+import { Source } from "./source";
 
 /**
  * The fundamental unit of consumption in the stream engine.
@@ -29,6 +31,7 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
   private _handler: Consumer.Handler<VALUE>;
   /** Consumer options including queue factory, lifecycle hooks, and credit callbacks. */
   private _options: Consumer.Options<VALUE>;
+  private _events: Consumer.Events<VALUE>;
   /** Current lifecycle status of this consumer. */
   private _status: Consumer.Status;
   /** Internal queue for values received without available credit. */
@@ -44,7 +47,8 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
     options?: Consumer.Options<VALUE>,
   ) {
     this._handler = handler;
-    this._options = { ...options };
+    this._options = options ?? {};
+    this._events = {};
     this._status = "active";
     this._queue = undefined;
     this._credit = 0;
@@ -78,7 +82,7 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
     return this._options;
   }
   set options(options: Omit<Consumer.Options<VALUE>, "queueFactory" | "init">) {
-    this._options = { ...options };
+    this._options = options;
   }
   getOption<NAME extends keyof Consumer.Options<VALUE>>(
     name: NAME,
@@ -96,11 +100,60 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
   get status(): Consumer.Status {
     return this._status;
   }
+  /** The queue fallback when consumer is slower */
   get queue(): Queue<VALUE> | undefined {
     return this._queue;
   }
+  /** This is the backbone of this library
+   * Pushing a value to a consumer with positive credit will trigger it's handler immediately.
+   * granting credit using `.next()` with none empty queue will trigger it's handler immediately with the dequeued value.
+   */
   get credit(): number {
     return this._credit;
+  }
+  /** Emits value when consumer receive it */
+  get $push(): Source<VALUE> {
+    return Source.from(
+      (this._events.$push ??= new Stream<VALUE>({
+        lastConsumerLeft: () => (this._events.$push = undefined),
+      })),
+    );
+  }
+  /** Emits undefined when consumer is ready for next value
+   * in this case the {@link Queue} is exhausted
+   */
+  get $next(): Source<void> {
+    return Source.from(
+      (this._events.$next ??= new Stream<void>({
+        lastConsumerLeft: () => (this._events.$next = undefined),
+      })),
+    );
+  }
+  /** Emits undefined when consumer switch to drain mode  */
+  get $drain(): Source<void> {
+    return Source.from(
+      (this._events.$drain ??= new Stream<void>({
+        lastConsumerLeft: () => (this._events.$drain = undefined),
+      })),
+    );
+  }
+  /**
+   * Emits the {@link TerminateReason} when the consumer terminates.
+   * Late {@link Consumer}s created receive the reason immediately if already terminated.
+   */
+  get $terminate(): Source<TerminateReason> {
+    return Source.from(
+      (this._events.$terminate ??= new Stream<TerminateReason>({
+        lastConsumerLeft: () => (this._events.$terminate = undefined),
+        consumerJoin: (s, c) => {
+          if (this._status === "abort" || this._status === "complete") {
+            c.push(this._status).next();
+            c.terminate(this._status);
+            s.terminate(this._status);
+          }
+        },
+      })),
+    );
   }
   /**
    * Delivers a value to this consumer.
@@ -117,12 +170,20 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
       (this._queue ??=
         this._options.queueFactory?.() ?? new DefaultQueue()).enqueue(value);
     }
-
+    this._events.$push?.push(value);
     return this;
   }
+  /**This is for inline values to push
+   *
+   * @param values
+   */
   pushMany(...values: [VALUE, ...VALUE[]]): this {
     return this.pushBatch(values);
   }
+  /**This is for pushing a big set of values
+   *
+   * @param values
+   */
   pushBatch(values: VALUE[]): this {
     for (let i = 0; i < values.length; i++) {
       this.push(values[i]);
@@ -138,7 +199,7 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
 
     if (!this._queue?.size) {
       this._options.next?.(this);
-
+      this._events.$next?.push();
       return this;
     }
 
@@ -153,6 +214,7 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
           this.terminate("complete");
         } else {
           this._options.next?.(this);
+          this._events.$next?.push();
         }
         break;
       }
@@ -183,6 +245,7 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
     } else if (this._queue?.size) {
       this._status = "drain";
       this._options.drain?.(this);
+      this._events.$drain?.push();
       return this;
     } else {
       this.next = this.terminate = EMPTY_THIS_FUNCTION;
@@ -192,6 +255,7 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
     this._initCleanup?.(reason);
 
     this._options.terminate?.(this, reason);
+    this._events.$terminate?.push(reason);
 
     this._queue = undefined;
 
@@ -226,4 +290,10 @@ export namespace Consumer {
     drain?: (consumer: Consumer<VALUE>) => void;
     terminate?: (consumer: Consumer<VALUE>, reason: TerminateReason) => void;
   }
+  export type Events<VALUE> = {
+    $push?: Stream<VALUE>;
+    $next?: Stream<void>;
+    $drain?: Stream<void>;
+    $terminate?: Stream<TerminateReason>;
+  };
 }

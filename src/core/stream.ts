@@ -37,7 +37,7 @@ export class Stream<VALUE>
 
   constructor(options?: Stream.Options<VALUE>) {
     super();
-    this._options = { ...options };
+    this._options = options ?? {};
     this._events = {};
 
     this._consumerSet =
@@ -68,7 +68,7 @@ export class Stream<VALUE>
   set options(
     options: Omit<Stream.Options<VALUE>, "consumerSetFactory" | "init">,
   ) {
-    this._options = { ...options };
+    this._options = options;
   }
   getOption<NAME extends keyof Stream.Options<VALUE>>(
     name: NAME,
@@ -86,9 +86,7 @@ export class Stream<VALUE>
   ) {
     this._options[name] = value;
   }
-  /**
-   * The default implementation of {@link ConsumerSet}
-   */
+  /**  {@link ConsumerSet} is the consumers manager*/
   get consumerSet(): ConsumerSet<VALUE> {
     return this._consumerSet;
   }
@@ -109,6 +107,14 @@ export class Stream<VALUE>
     return Source.from(
       (this._events.$next ??= new Stream<Consumer<VALUE>>({
         lastConsumerLeft: () => (this._events.$next = undefined),
+      })),
+    );
+  }
+  /** Emits any {@link Consumer} that called `next()`. */
+  get $consumerNext(): Source<Consumer<VALUE>> {
+    return Source.from(
+      (this._events.$consumerNext ??= new Stream<Consumer<VALUE>>({
+        lastConsumerLeft: () => (this._events.$consumerNext = undefined),
       })),
     );
   }
@@ -212,7 +218,7 @@ export class Stream<VALUE>
     handler: Consumer.Handler<VALUE>,
     options?: Consumer.Options<VALUE>,
   ): Consumer<VALUE> {
-    const { queueFactory, next, terminate, ...rest } = options ?? {};
+    const { next, terminate, ...rest } = options ?? {};
 
     const consumer = new Consumer(handler, {
       ...rest,
@@ -223,6 +229,8 @@ export class Stream<VALUE>
           this._events.$next?.push(consumer);
           next?.(consumer);
         }
+        this._options.consumerNext?.(this, consumer);
+        this._events.$consumerNext?.push(consumer);
       },
 
       terminate: (consumer, reason) => {
@@ -347,6 +355,7 @@ export namespace Stream {
     ) => undefined | ((reason: TerminateReason) => void);
     push?: (stream: Stream<VALUE>, value: VALUE) => void;
     next?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
+    consumerNext?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
     consumerJoin?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
     consumerLeft?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
     firstConsumerJoin?: (
@@ -365,6 +374,7 @@ export namespace Stream {
     $push?: Stream<VALUE>;
     $next?: Stream<Consumer<VALUE>>;
     $drain?: Stream<void>;
+    $consumerNext?: Stream<Consumer<VALUE>>;
     $consumerJoin?: Stream<Consumer<VALUE>>;
     $consumerLeft?: Stream<Consumer<VALUE>>;
     $firstConsumerJoin?: Stream<Consumer<VALUE>>;
