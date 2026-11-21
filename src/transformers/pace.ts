@@ -10,7 +10,7 @@ import { ValueOfConsumable } from "../core/types";
  * Credit flows backwards to slow the upstream producer.
  *
  * @example
- * fromInterval(50).pipe(pace(500)).pipe(listen(console.log));
+ * intervalSource(50).pipe(pace(500)).pipe(listen(console.log));
  */
 export class Pace<
   INPUT extends Consumable.AnyConsumable,
@@ -24,7 +24,10 @@ export class Pace<
     super();
   }
 
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     const { terminate, ...rest } = options ?? {};
     const { ms, $input } = this;
 
@@ -66,8 +69,10 @@ export class Pace<
  * @param ms Minimum interval in milliseconds between consumed values.
  *
  * @example
- * fromInterval(50).pipe(pace(500)).pipe(listen(console.log));
+ * intervalSource(50).pipe(pace(500)).pipe(listen(console.log));
  */
-export function pace<INPUT extends Consumable.AnyConsumable, MS extends number>(ms: MS) {
+export function pace<INPUT extends Consumable.AnyConsumable, MS extends number>(
+  ms: MS,
+) {
   return ($input: INPUT) => new Pace($input, ms);
 }

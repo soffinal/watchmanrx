@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { takeUntil } from "./take-until";
 import { listen } from "./listen";
 import { Stream } from "../core/stream";
@@ -36,7 +36,7 @@ describe("takeUntil", () => {
   it("emits all values if notifier never fires", () => {
     const notifier = new Stream<void>();
     const results: number[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(takeUntil(notifier))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1, 2, 3]);

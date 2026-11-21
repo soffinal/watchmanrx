@@ -7,7 +7,7 @@ import { ValueOfConsumable } from "../core/types";
  * Runs a side-effect callback for each value without modifying it.
  *
  * @example
- * of(1, 2, 3).pipe(tap(v => console.log('side effect', v))).pipe(listen());
+ * valuesSource(1, 2, 3).pipe(tap(v => console.log('side effect', v))).pipe(listen());
  */
 export class Tap<
   INPUT extends Consumable.AnyConsumable,
@@ -19,9 +19,15 @@ export class Tap<
   ) {
     super();
   }
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE> {
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE> {
     let index = 0;
-    return this.$input.consume((consumer, value) => (this.fn(value, index++), handler(consumer, value)), options);
+    return this.$input.consume(
+      (consumer, value) => (this.fn(value, index++), handler(consumer, value)),
+      options,
+    );
   }
 }
 /**
@@ -30,7 +36,7 @@ export class Tap<
  * @param fn `(value, index) => void`
  *
  * @example
- * of(1, 2, 3).pipe(tap(v => console.log('side effect', v))).pipe(listen());
+ * valuesSource(1, 2, 3).pipe(tap(v => console.log('side effect', v))).pipe(listen());
  */
 export function tap<
   INPUT extends Consumable.AnyConsumable,

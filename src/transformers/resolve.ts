@@ -9,7 +9,7 @@ import { ValueOfConsumable, ValueOfPromise, Error } from "../core/types";
  * Upstream credit is withheld until a concurrency slot is free.
  *
  * @example
- * fromGenerator(function* () {
+ * generatorSource(function* () {
         yield fetch("/a");
         yield fetch("/b");
         yield fetch("/c");
@@ -17,7 +17,9 @@ import { ValueOfConsumable, ValueOfPromise, Error } from "../core/types";
  */
 export class Resolve<
   INPUT extends Consumable<Promise<any>>,
-  VALUE extends ValueOfPromise<ValueOfConsumable<INPUT>> = ValueOfPromise<ValueOfConsumable<INPUT>>,
+  VALUE extends ValueOfPromise<ValueOfConsumable<INPUT>> = ValueOfPromise<
+    ValueOfConsumable<INPUT>
+  >,
 > extends Source<VALUE | Error<any>> {
   constructor(
     readonly $input: INPUT,
@@ -82,12 +84,14 @@ export class Resolve<
  * @param concurrency Max number of in-flight promises (default `1`).
  *
  * @example
- * fromGenerator(function* () {
+ * generatorSource(function* () {
         yield fetch("/a");
         yield fetch("/b");
         yield fetch("/c");
       }).pipe(resolve(2)).pipe(listen(console.log));
  */
-export function resolve<INPUT extends Consumable<Promise<any>>>(concurrency = 1) {
+export function resolve<INPUT extends Consumable<Promise<any>>>(
+  concurrency = 1,
+) {
   return ($input: INPUT) => new Resolve($input, concurrency);
 }

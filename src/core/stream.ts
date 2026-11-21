@@ -193,7 +193,7 @@ export class Stream<VALUE>
    *
    * @param values
    */
-  pushMany(...values: [VALUE, ...VALUE[]]): this {
+  pushMany(...values: VALUE[]): this {
     return this.pushBatch(values);
   }
   /**This is for pushing a big set of values

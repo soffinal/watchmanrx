@@ -9,9 +9,11 @@ import { Source } from "../core/source";
  * To get the final count, just pipe `last()` transformer after it.
  *
  * @example
- * of('a','b','c').pipe(count()).pipe(last()).pipe(listen(console.log)); // 3
+ * valuesSource('a','b','c').pipe(count()).pipe(last()).pipe(listen(console.log)); // 3
  */
-export class Count<INPUT extends Consumable.AnyConsumable> extends Source<number> {
+export class Count<
+  INPUT extends Consumable.AnyConsumable,
+> extends Source<number> {
   constructor(private $input: INPUT) {
     super();
   }
@@ -35,7 +37,7 @@ export class Count<INPUT extends Consumable.AnyConsumable> extends Source<number
  * To get the final count, just pipe `last()` transformer after it
  *
  * @example
- * of('a','b','c').pipe(count()).pipe(last()).pipe(listen(console.log)); // 3
+ * valuesSource('a','b','c').pipe(count()).pipe(last()).pipe(listen(console.log)); // 3
  */
 export function count<INPUT extends Consumable.AnyConsumable>() {
   return ($input: INPUT) => new Count($input);

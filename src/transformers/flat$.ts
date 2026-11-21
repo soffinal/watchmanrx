@@ -8,12 +8,15 @@ import { isConsumable, ValueOfConsumable } from "../core/types";
  * and waits for it to complete before moving to the next.
  *
  * @example
- * of(of(1,2), of(3,4)).pipe(flat$()).pipe(listen(console.log)); // 1,2,3,4
+ * valuesSource(valuesSource(1,2), valuesSource(3,4)).pipe(flat$()).pipe(listen(console.log)); // 1,2,3,4
  */
 export class Flat$<
   INPUT extends Consumable.AnyConsumable,
   DEPTH extends number = 1,
-  VALUE extends ValueOfConsumable<INPUT, DEPTH> = ValueOfConsumable<INPUT, DEPTH>,
+  VALUE extends ValueOfConsumable<INPUT, DEPTH> = ValueOfConsumable<
+    INPUT,
+    DEPTH
+  >,
 > extends Source<VALUE> {
   constructor(
     readonly $input: INPUT,
@@ -29,7 +32,10 @@ export class Flat$<
 
     return flat$;
   }
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE> {
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE> {
     const { next, terminate, ...rest } = options ?? {};
 
     const output$ = new Consumer(handler, {
@@ -79,9 +85,12 @@ export class Flat$<
  * @param depth How many levels of nesting to flatten sequentially (default `1`).
  *
  * @example
- * of(of(1,2), of(3,4)).pipe(flat$()).pipe(listen(console.log)); // 1,2,3,4
+ * valuesSource(valuesSource(1,2), valuesSource(3,4)).pipe(flat$()).pipe(listen(console.log)); // 1,2,3,4
  */
 
-export function flat$<INPUT extends Consumable.AnyConsumable, DEPTH extends number = 1>(depth = 1 as DEPTH) {
+export function flat$<
+  INPUT extends Consumable.AnyConsumable,
+  DEPTH extends number = 1,
+>(depth = 1 as DEPTH) {
   return ($input: INPUT) => new Flat$($input, depth);
 }

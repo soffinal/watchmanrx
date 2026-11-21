@@ -8,8 +8,8 @@ import { ValueOfConsumable } from "../core/types";
  * `true` opens the gate (consume the $input), `false` closes it (terminates inner consumer).
  *
  * @example
- * const toggle = fromInterval(3000).pipe(map((_, i) => i % 2 === 0));
- * fromInterval(500).pipe(gate(toggle)).pipe(listen(console.log));
+ * const toggle = intervalSource(3000).pipe(map((_, i) => i % 2 === 0));
+ * intervalSource(500).pipe(gate(toggle)).pipe(listen(console.log));
  */
 export class Gate<
   INPUT extends Consumable.AnyConsumable,
@@ -21,7 +21,10 @@ export class Gate<
   ) {
     super();
   }
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     const { next, terminate, ...rest } = options ?? {};
 
     let input$: Consumer<VALUE> | undefined;
@@ -68,9 +71,11 @@ export class Gate<
  * @param control A stream of booleans. `true` opens, `false` closes.
  *
  * @example
- * const toggle = fromInterval(3000).pipe(map((_, i) => i % 2 === 0));
- * fromInterval(500).pipe(gate(toggle)).pipe(listen(console.log));
+ * const toggle = intervalSource(3000).pipe(map((_, i) => i % 2 === 0));
+ * intervalSource(500).pipe(gate(toggle)).pipe(listen(console.log));
  */
-export function gate<INPUT extends Consumable.AnyConsumable>(control: Consumable<boolean>) {
+export function gate<INPUT extends Consumable.AnyConsumable>(
+  control: Consumable<boolean>,
+) {
   return ($input: INPUT) => new Gate($input, control);
 }

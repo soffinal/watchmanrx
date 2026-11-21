@@ -10,7 +10,7 @@ import { ValueOfConsumable } from "../core/types";
  * Use with {@link last} to get the final collected array.
  *
  * @example
- * of(1, 2, 3).pipe(scanArray()).pipe(last()).pipe(listen(console.log)); // [1, 2, 3]
+ * valuesSource(1, 2, 3).pipe(scanArray()).pipe(last()).pipe(listen(console.log)); // [1, 2, 3]
  */
 class ScanArray<
   INPUT extends Consumable.AnyConsumable,
@@ -48,7 +48,7 @@ class ScanArray<
  * Use with {@link last} to get the final collected array.
  *
  * @example
- * of(1, 2, 3).pipe(scanArray()).pipe(last()).pipe(listen(console.log)); // [1, 2, 3]
+ * valuesSource(1, 2, 3).pipe(scanArray()).pipe(last()).pipe(listen(console.log)); // [1, 2, 3]
  */
 export function scanArray<INPUT extends Consumable.AnyConsumable>() {
   return ($input: INPUT) => new ScanArray($input);

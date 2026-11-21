@@ -6,7 +6,7 @@ import { AsyncIteratorSource } from "./async-iterator-source";
  * A new generator is created per consumer.
  *
  * @example
- * fromAsyncGenerator(async function* () { yield 1; yield 2; }).pipe(listen(console.log));
+ * asyncGeneratorSource(async function* () { yield 1; yield 2; }).pipe(listen(console.log));
  */
 export class AsyncGeneratorSource<VALUE> extends AsyncIteratorSource<VALUE> {
   constructor(asyncGeneratorFn: () => AsyncGenerator<VALUE>) {
@@ -22,9 +22,11 @@ export class AsyncGeneratorSource<VALUE> extends AsyncIteratorSource<VALUE> {
  * @param asyncGeneratorFn () => AsyncGenerator<VALUE>.
  *
  * @example
- * fromAsyncGenerator(async function* () { yield 1; yield 2; })
+ * asyncGeneratorSource(async function* () { yield 1; yield 2; })
     .pipe(listen(console.log));
  */
-export function fromAsyncGenerator<VALUE>(asyncGeneratorFn: () => AsyncGenerator<VALUE>): AsyncGeneratorSource<VALUE> {
+export function asyncGeneratorSource<VALUE>(
+  asyncGeneratorFn: () => AsyncGenerator<VALUE>,
+): AsyncGeneratorSource<VALUE> {
   return new AsyncGeneratorSource(asyncGeneratorFn);
 }

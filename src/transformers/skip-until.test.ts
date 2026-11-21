@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { skipUntil } from "./skip-until";
 import { listen } from "./listen";
 import { Stream } from "../core/stream";
@@ -37,7 +37,7 @@ describe("skipUntil", () => {
   it("skips all values if notifier never fires", () => {
     const results: number[] = [];
     const notifier = new Stream<void>();
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(skipUntil(notifier))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([]);

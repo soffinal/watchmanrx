@@ -9,12 +9,15 @@ import { passive } from "./passive";
  * The first consumable to terminate will terminates the output.
  *
  * @example
- * const lifetime = fromTimeout(5000);
- * fromInterval(500).pipe(scope(lifetime)).pipe(listen(console.log));
+ * const lifetime = timeoutSource(5000);
+ * intervalSource(500).pipe(scope(lifetime)).pipe(listen(console.log));
  */
 export class Scope<
   INPUT extends Consumable.AnyConsumable,
-  OTHERS extends [other: Consumable.AnyConsumable, ...others: Consumable.AnyConsumable[]],
+  OTHERS extends [
+    other: Consumable.AnyConsumable,
+    ...others: Consumable.AnyConsumable[],
+  ],
   VALUE extends ValueOfConsumable<INPUT> = ValueOfConsumable<INPUT>,
 > extends Source<VALUE> {
   constructor(
@@ -23,7 +26,10 @@ export class Scope<
   ) {
     super();
   }
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     const { terminate, ...rest } = options ?? {};
 
     const output$ = this.$input.consume(handler, {
@@ -52,12 +58,15 @@ export class Scope<
  * @param others One or more notifier streams. The first to emit terminates the output.
  *
  * @example
- * const lifetime = fromTimeout(5000);
- * fromInterval(500).pipe(scope(lifetime)).pipe(listen(console.log));
+ * const lifetime = timeoutSource(5000);
+ * intervalSource(500).pipe(scope(lifetime)).pipe(listen(console.log));
  */
 export function scope<
   INPUT extends Consumable.AnyConsumable,
-  OTHERS extends [other: Consumable.AnyConsumable, ...others: Consumable.AnyConsumable[]],
+  OTHERS extends [
+    other: Consumable.AnyConsumable,
+    ...others: Consumable.AnyConsumable[],
+  ],
 >(...others: OTHERS) {
   return ($input: INPUT) => new Scope($input, others);
 }

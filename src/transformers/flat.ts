@@ -8,7 +8,7 @@ import { ValueOfConsumable } from "../core/types";
  * `depth` controls how deep to flatten (default `0` = one level, same as `Array.flat(1)`).
  *
  * @example
- * of([1,2],[3,4]).pipe(flat()).pipe(listen(console.log)); // 1,2,3,4
+ * valuesSource([1,2],[3,4]).pipe(flat()).pipe(listen(console.log)); // 1,2,3,4
  */
 export class Flat<
   INPUT extends Consumable<Array<any>>,
@@ -66,6 +66,9 @@ export class Flat<
  * Creates a `flat` transformer.
  * @param depth Flatten depth (default `0` = one level).
  */
-export function flat<INPUT extends Consumable<Array<any>>, DEPTH extends number = 0>(depth = 0 as DEPTH) {
+export function flat<
+  INPUT extends Consumable<Array<any>>,
+  DEPTH extends number = 0,
+>(depth = 0 as DEPTH) {
   return ($input: INPUT) => new Flat($input, depth);
 }

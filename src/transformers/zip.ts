@@ -9,7 +9,8 @@ import { Empty, ValueOfConsumable, ZipedArray } from "../core/types";
  * Combines values from multiple streams pairwise into tuples.
  * Emits a tuple only when all inputs have provided a new value.
  * Unmatched values remaining at termination are available on `$rest`.
- *
+ * Terminate when any of the inputs terminate.
+
  * @example
  * const s1 = new Stream<number>();
  * const s2 = new Stream<string>();
@@ -18,7 +19,7 @@ import { Empty, ValueOfConsumable, ZipedArray } from "../core/types";
  */
 export class Zip<
   INPUT extends Consumable.AnyConsumable,
-  OTHERS extends [Consumable.AnyConsumable, ...Consumable.AnyConsumable[]],
+  OTHERS extends Consumable.AnyConsumable[],
 > extends Source<ZipedArray<[INPUT, ...OTHERS]>> {
   private $inputs: [INPUT, ...OTHERS];
   private _$rest?: Stream<
@@ -27,7 +28,10 @@ export class Zip<
       ...{ [K in keyof OTHERS]: ValueOfConsumable<OTHERS[K]> | Empty },
     ]
   >;
-  constructor($input: INPUT, $others: OTHERS) {
+  constructor(
+    readonly $input: INPUT,
+    $others: OTHERS,
+  ) {
     super();
     this.$inputs = [$input, ...$others];
   }
@@ -51,16 +55,16 @@ export class Zip<
 
     const output$ = new Consumer<ZipedArray<[INPUT, ...OTHERS]>>(handler, {
       ...rest,
-      next(consumer) {
+      next(c) {
         consumers$.forEach((c) => c.next());
-        next?.(consumer);
+        next?.(c);
       },
-      terminate: (consumer, reason) => {
+      terminate: (c, reason) => {
         if (count < buffer.length) this._$rest?.push([...buffer] as any);
         consumers$.forEach((c) => c.terminate(reason));
         consumers$.length = 0;
         buffer.length = 0;
-        terminate?.(consumer, reason);
+        terminate?.(c, reason);
       },
     });
 
@@ -77,8 +81,8 @@ export class Zip<
           }
         },
         {
-          terminate(consumer, reason) {
-            output$.terminate(reason);
+          terminate(c, r) {
+            output$.terminate(r);
           },
         },
       ),
@@ -91,6 +95,7 @@ export class Zip<
  * Combines values from multiple streams pairwise into tuples.
  * Emits a tuple only when all inputs have provided a new value.
  * Unmatched values remaining at termination are available on `$rest`.
+ * Terminate when any of the inputs terminate.
  *
  * @param others Additional streams to zip with the input.
  *
@@ -102,7 +107,7 @@ export class Zip<
  */
 export function zip<
   INPUT extends Consumable.AnyConsumable,
-  OTHERS extends [Consumable.AnyConsumable, ...Consumable.AnyConsumable[]],
+  OTHERS extends Consumable.AnyConsumable[],
 >(...others: OTHERS) {
   return ($input: INPUT) => new Zip($input, others);
 }

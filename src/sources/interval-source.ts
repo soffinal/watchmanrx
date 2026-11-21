@@ -8,13 +8,16 @@ import { Source } from "../core/source";
  * Never completes on its own — must be terminated externally.
  *
  * @example
- * fromInterval(500).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
+ * intervalSource(500).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
  */
 export class IntervalSource<MS extends number> extends Source<number> {
   constructor(private ms: MS) {
     super();
   }
-  consume(handler: Consumer.Handler<number>, options?: Consumer.Options<number>): Consumer<number> {
+  consume(
+    handler: Consumer.Handler<number>,
+    options?: Consumer.Options<number>,
+  ): Consumer<number> {
     const { init, ...rest } = options ?? {};
     let count = 0;
     return new Consumer(handler, {
@@ -41,8 +44,8 @@ export class IntervalSource<MS extends number> extends Source<number> {
  * @param ms Interval in milliseconds.
  *
  * @example
- * fromInterval(500).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
+ * intervalSource(500).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
  */
-export function fromInterval<MS extends number>(ms: MS): IntervalSource<MS> {
+export function intervalSource<MS extends number>(ms: MS): IntervalSource<MS> {
   return new IntervalSource(ms);
 }

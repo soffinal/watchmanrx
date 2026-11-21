@@ -218,7 +218,7 @@ The caller doesn't care which consumer it gets back. It just calls `next()` and 
 Chain a few transformers together:
 
 ```typescript
-of(1, 2, 3)
+valuesSource(1, 2, 3)
   .pipe(filter((v) => v > 1)) // wraps handler
   .pipe(map((v) => v * 10)) // wraps handler again
   .pipe(listen(console.log)); // the final handler
@@ -247,7 +247,7 @@ The entire user-facing API is three concepts. Once you understand them, everythi
 // which returns a new Map instance, which is a Source
 // which you can pipe again
 
-of(1, 2, 3, 4, 5)
+valuesSource(1, 2, 3, 4, 5)
   .pipe(filter((v) => v % 2 === 0)) // returns a Filter (a Source)
   .pipe(map((v) => v * 10)) // returns a Map (a Source)
   .pipe(listen(console.log)); // 20, 40
@@ -261,8 +261,8 @@ Every transformer is a class. `map`, `filter`, `debounce` — all classes that e
 
 ```typescript
 // These two are identical
-of(1, 2, 3).pipe(map((v) => v * 2));
-new Map(of(1, 2, 3), (v) => v * 2);
+valuesSource(1, 2, 3).pipe(map((v) => v * 2));
+new Map(valuesSource(1, 2, 3), (v) => v * 2);
 ```
 
 The reason they're classes and not plain functions is memory and CPU. A class instance has a fixed shape that the JIT can optimize aggressively — it can inline the `consume` call, cache the property lookups, and treat the whole thing as a monomorphic call site. A plain closure-based approach would produce a new object shape on every call, defeating those optimizations.
@@ -271,13 +271,13 @@ The function factory (`map(fn)`) exists purely for `.pipe()` ergonomics. But bec
 
 ```typescript
 // Chained style
-of(1, 2, 3)
+valuesSource(1, 2, 3)
   .pipe(filter((v) => v > 1))
   .pipe(map((v) => v * 10))
   .pipe(listen(console.log));
 
 // Step-by-step style — same result, easier to debug or build dynamically
-const $source = of(1, 2, 3);
+const $source = valuesSource(1, 2, 3);
 const $filtered = new Filter($source, (v) => v > 1);
 const $mapped = new Map($filtered, (v) => v * 10);
 $mapped.pipe(listen(console.log));
@@ -304,7 +304,7 @@ The problem: most of your code doesn't throw. You're paying the cost of error-aw
 My answer: errors are just values. The core doesn't know what an `Error` is. If you want error handling, you add a transformer that wraps your pipeline in a try/catch and emits `Error<thrown>` as a value when something throws.
 
 ```typescript
-of(1, 2, 3)
+valuesSource(1, 2, 3)
   .pipe(
     safe(
       map((v) => {
@@ -326,7 +326,7 @@ Same principle applies to promises. Most reactive libraries have special handlin
 My answer: promises are just values. If you have a stream of promises, pipe `resolve` to handle them. You control the concurrency explicitly.
 
 ```typescript
-fromGenerator(function* () {
+generatorSource(function* () {
   yield fetch("/api/users");
   yield fetch("/api/posts");
   yield fetch("/api/comments");
@@ -345,7 +345,7 @@ My answer: the queue is bounded by transformers, not by configuration. If you wa
 
 ```typescript
 // Late subscriber gets the last 3 values immediately, then live values
-const $shared = fromInterval(100).pipe(share()).pipe(latest(3));
+const $shared = intervalSource(100).pipe(share()).pipe(latest(3));
 setTimeout(() => $shared.pipe(listen(console.log)), 1000);
 
 // Slow consumer gets values in batches of 10
@@ -365,7 +365,7 @@ When you share a source across multiple consumers, who drives it? By default, ev
 But sometimes you want a consumer that observes without driving at all. A logger. A debugger. A metrics collector. You don't want it to trigger a database query or a network request just because it subscribed.
 
 ```typescript
-const $shared = fromInterval(500).pipe(share());
+const $shared = intervalSource(500).pipe(share());
 
 // This drives the source — triggers the interval
 $shared.pipe(listen((v) => console.log("main:", v)));
@@ -385,7 +385,7 @@ $shared.pipe(passive()).pipe(listen((v) => console.log("observer:", v)));
 `filter` doesn't just pass or drop values. Rejected values go to a lazy `$complements` stream that costs nothing if unused. This lets you route values to two different pipelines from a single pass:
 
 ```typescript
-const $even = of(1, 2, 3, 4, 5).pipe(filter((v) => v % 2 === 0));
+const $even = valuesSource(1, 2, 3, 4, 5).pipe(filter((v) => v % 2 === 0));
 
 $even.pipe(listen(console.log)); // 2, 4
 $even.$complements.pipe(listen(console.log)); // 1, 3, 5
@@ -451,13 +451,13 @@ This also means you don't need `listen` at the end of a pipeline. Use `tap` for 
 
 ```typescript
 // listen at the end works, but mixes side effects with the wake-up call
-fromEventTarget(socket, "message")
+eventTargetSource(socket, "message")
   .pipe(map((e) => JSON.parse(e.data)))
   .pipe(resolve(2))
   .pipe(listen(updateUI));
 
 // tap + pump: side effects stay in the pipeline, pump is just the trigger
-fromEventTarget(socket, "message")
+eventTargetSource(socket, "message")
   .pipe(map((e) => JSON.parse(e.data)))
   .pipe(resolve(2))
   .pipe(tap(updateUI)) // side effect lives here
@@ -467,7 +467,7 @@ fromEventTarget(socket, "message")
 Anything you attach downstream of `pump()` is still a dormant consumer and needs its own wake-up call. You can use another `pump()`, or `tap + pump`, or `listen` — which is just a shorthand for `tap + pump`:
 
 ```typescript
-const $hot = fromEventTarget(socket, "message")
+const $hot = eventTargetSource(socket, "message")
   .pipe(map((e) => JSON.parse(e.data)))
   .pipe(resolve(2))
   .pipe(tap(updateUI))
@@ -486,7 +486,7 @@ Session data, request metadata, correlation IDs, feature flags, user permissions
 
 ```typescript
 // Attach session metadata to every event in the pipeline
-fromEventTarget(socket, "message")
+eventTargetSource(socket, "message")
   .pipe(map((e) => JSON.parse(e.data)))
   .pipe(context({ userId: session.userId, requestId: crypto.randomUUID() }))
   .pipe(tap(({ value, context }) => logger.info(context.requestId, value)))
@@ -495,14 +495,16 @@ fromEventTarget(socket, "message")
   .pipe(pump());
 
 // Or accumulate state across values
-of(1, 2, 3)
+valuesSource(1, 2, 3)
   .pipe(context({ total: 0 }))
   .pipe(
     tap(({ value, context }) => {
       context.total += value;
     }),
   )
-  .pipe(listen(({ value, context }) => console.log(value, "total:", context.total)));
+  .pipe(
+    listen(({ value, context }) => console.log(value, "total:", context.total)),
+  );
 ```
 
 The context object is the same reference for every value — mutations made in one `tap` are visible in every step. This makes it a lightweight alternative to external state when the state is scoped to a single pipeline's lifetime.
@@ -512,7 +514,7 @@ The context object is the same reference for every value — mutations made in o
 `delay` with `ms <= 0` uses `queueMicrotask` instead of `setTimeout`. This defers each value to the next microtask checkpoint without leaving the current event loop tick — useful for breaking synchronous chains without the overhead of a timer.
 
 ```typescript
-of(1, 2, 3).pipe(delay(0)).pipe(listen(console.log)); // deferred via queueMicrotask
+valuesSource(1, 2, 3).pipe(delay(0)).pipe(listen(console.log)); // deferred via queueMicrotask
 ```
 
 ### `State.value` vs `State.push`
@@ -529,10 +531,10 @@ $status.push("ping"); // logs 'ping', but status.value still === 'loading'
 
 ### Replayable Sources
 
-Some sources are **replayable** — each new consumer gets a fresh independent sequence. `of`, `fromIterable`, `fromGenerator`, `fromInterval`, `fromRange`, `fromTimeout`, `fromFunction` are all replayable. This means:
+Some sources are **replayable** — each new consumer gets a fresh independent sequence. `of`, `iterableSource`, `generatorSource`, `intervalSource`, `rangeSource`, `timeoutSource`, `functionSource` are all replayable. This means:
 
 ```typescript
-const $source = fromIterable([1, 2, 3]);
+const $source = iterableSource([1, 2, 3]);
 $source.pipe(listen(console.log)); // 1, 2, 3
 $source.pipe(listen(console.log)); // 1, 2, 3 again — fresh iterator
 ```
@@ -542,7 +544,7 @@ When you `share()` a replayable source, the first consumer to call `next()` star
 **Critical gotcha:** if the replayable source is synchronous and the first consumer to call `next()` is also synchronous, it will drain the entire source before any other consumer gets a chance to receive anything. The source completes in the same tick, and late consumers see nothing:
 
 ```typescript
-const $shared = of(1, 2, 3).pipe(share());
+const $shared = valuesSource(1, 2, 3).pipe(share());
 
 // This consumer is synchronous — it drains the entire source immediately
 $shared.pipe(listen(console.log)); // 1, 2, 3
@@ -551,7 +553,7 @@ $shared.pipe(listen(console.log)); // 1, 2, 3
 $shared.pipe(listen(console.log)); // nothing
 ```
 
-This only affects sources that are both replayable **and** synchronous — `of`, `fromIterable`, `fromRange`, `fromGenerator` with a synchronous generator. `fromInterval` is replayable too, but it's asynchronous — each consumer gets its own independent timer and the first consumer never drains it in the same tick, so sharing it is safe.
+This only affects sources that are both replayable **and** synchronous — `of`, `iterableSource`, `rangeSource`, `generatorSource` with a synchronous generator. `intervalSource` is replayable too, but it's asynchronous — each consumer gets its own independent timer and the first consumer never drains it in the same tick, so sharing it is safe.
 
 The fix is to register all consumers before any of them calls `next()`, or to use `latest(n)` after `share()` to buffer values for late subscribers.
 
@@ -564,11 +566,11 @@ One more design decision worth explaining: aggregation operators emit running va
 `sum`, `max`, `min`, `count`, `scan` — they all emit after every input value. To get the final result, you pipe `last()` after them.
 
 ```typescript
-of(1, 2, 3, 4, 5)
+valuesSource(1, 2, 3, 4, 5)
   .pipe(scan(0, (acc, v) => acc + v))
   .pipe(listen(console.log)); // 1, 3, 6, 10, 15
 
-of(1, 2, 3, 4, 5)
+valuesSource(1, 2, 3, 4, 5)
   .pipe(scan(0, (acc, v) => acc + v))
   .pipe(last())
   .pipe(listen(console.log)); // 15
@@ -587,7 +589,7 @@ One area where the library's philosophy really shows is flattening. There are th
 The simplest case. You have a stream of arrays and you want individual values:
 
 ```typescript
-of([1, 2], [3, 4]).pipe(flat()).pipe(listen(console.log)); // 1, 2, 3, 4
+valuesSource([1, 2], [3, 4]).pipe(flat()).pipe(listen(console.log)); // 1, 2, 3, 4
 ```
 
 This is purely about arrays. It has nothing to do with streams inside streams.
@@ -597,7 +599,9 @@ This is purely about arrays. It has nothing to do with streams inside streams.
 You have a stream of streams (or any `Consumable`), and you want to consume them one at a time — finish the first before starting the second:
 
 ```typescript
-of(of(1, 2), of(3, 4)).pipe(flat$()).pipe(listen(console.log)); // 1, 2, 3, 4 — in order, sequentially
+valuesSource(valuesSource(1, 2), valuesSource(3, 4))
+  .pipe(flat$())
+  .pipe(listen(console.log)); // 1, 2, 3, 4 — in order, sequentially
 ```
 
 The key word is _sequentially_. `flat$` waits for each inner stream to complete before subscribing to the next one. If you have a stream of HTTP requests and you need them to execute in order, this is your operator.
@@ -622,7 +626,7 @@ $inner2.push(2); // logs 2
 
 This is the operator behind "cancel the previous search request when a new one comes in". Combined with `debounce` and `map` to a fetch, it gives you exactly that behavior.
 
-**Critical gotcha with `switch$`:** it does not work with replayable sources. If you do `of(of(1,2), of(3,4)).pipe(switch$())`, you get nothing. The reason: `switch$` is eager on the outer stream but lazy on the inner one. With a replayable source like `of`, the outer stream completes synchronously before `switch$` has a chance to attach a consumer to the last inner value. Use `switch$` with hot sources — `Stream`, `fromEventTarget`, etc.
+**Critical gotcha with `switch$`:** it does not work with replayable sources. If you do `valuesSource(valuesSource(1,2), valuesSource(3,4)).pipe(switch$())`, you get nothing. The reason: `switch$` is eager on the outer stream but lazy on the inner one. With a replayable source like `of`, the outer stream completes synchronously before `switch$` has a chance to attach a consumer to the last inner value. Use `switch$` with hot sources — `Stream`, `eventTargetSource`, etc.
 
 ---
 
@@ -696,7 +700,9 @@ Every pipeline needs a way to stop. You can call `terminate()` manually, but the
 ```typescript
 const $unmount = new Signal<void>();
 
-fromEventTarget(window, "resize").pipe(scope($unmount)).pipe(listen(handleResize));
+eventTargetSource(window, "resize")
+  .pipe(scope($unmount))
+  .pipe(listen(handleResize));
 
 // When the component unmounts:
 $unmount.push(); // Signal auto-terminates after push, which terminates the resize pipeline
@@ -709,11 +715,13 @@ This is the idiomatic way to manage component lifetimes. Create a `Signal`, pass
 `scopeStrict` is the opposite policy. The main pipeline keeps running until every single notifier has terminated. Think of it as a countdown:
 
 ```typescript
-const $task1Done = fromTimeout(1000);
-const $task2Done = fromTimeout(3000);
+const $task1Done = timeoutSource(1000);
+const $task2Done = timeoutSource(3000);
 
 // Keep polling until both background tasks are done
-fromInterval(500).pipe(scopeStrict($task1Done, $task2Done)).pipe(listen(checkProgress));
+intervalSource(500)
+  .pipe(scopeStrict($task1Done, $task2Done))
+  .pipe(listen(checkProgress));
 // runs for 3 seconds — stops only when the last notifier (task2Done$) fires
 ```
 
@@ -729,7 +737,7 @@ Both operators slow down a stream, but they solve different problems.
 
 ```typescript
 // User is typing — only react after they stop for 300ms
-fromEventTarget(input, "input").pipe(debounce(300)).pipe(listen(search));
+eventTargetSource(input, "input").pipe(debounce(300)).pipe(listen(search));
 
 // If user types 5 characters quickly, only the last one triggers search
 ```
@@ -744,7 +752,7 @@ This is what distinguishes `pace` from `delay`. `delay` always adds a fixed offs
 
 ```typescript
 // A sensor fires 100 times per second — only process 2 per second
-fromEventTarget(sensor, "data").pipe(pace(500)).pipe(listen(process));
+eventTargetSource(sensor, "data").pipe(pace(500)).pipe(listen(process));
 ```
 
 Use `pace` when you want to _spread out_ a fast stream without losing values, and without adding unnecessary latency when the source is already slow.
@@ -760,7 +768,7 @@ First, in `combine`: when an input hasn't emitted yet, its slot in the tuple is 
 Second, in `first` and `last`: if the stream completes without emitting any values, or if it aborts, these operators emit `EMPTY` rather than nothing. This means your downstream handler always gets called — you just check whether the value is `EMPTY`:
 
 ```typescript
-of() // empty stream
+valuesSource() // empty stream
   .pipe(first())
   .pipe(
     listen((v) => {
@@ -779,7 +787,7 @@ Similarly, `last` emits `EMPTY` on abort (not on complete with no values — tha
 `every` checks whether all values satisfy a predicate. What makes it interesting is that it terminates early the moment a value fails — it doesn't wait for the stream to complete:
 
 ```typescript
-of(1, -1, 3, 4)
+valuesSource(1, -1, 3, 4)
   .pipe(every((v) => v > 0))
   .pipe(listen(console.log)); // false — terminates after seeing -1, never processes 3 or 4
 ```
@@ -790,10 +798,12 @@ For an empty stream, `every` emits `true` — vacuous truth, consistent with how
 
 ## `range` Transformer — Slice by Index
 
-Not to be confused with `fromRange` (which generates integers), the `range` _transformer_ slices a stream by index position. It takes a `start` index and an `offset` (count), skipping values before `start` and terminating after `offset` values:
+Not to be confused with `rangeSource` (which generates integers), the `range` _transformer_ slices a stream by index position. It takes a `start` index and an `offset` (count), skipping values before `start` and terminating after `offset` values:
 
 ```typescript
-of("a", "b", "c", "d", "e").pipe(range(1, 3)).pipe(listen(console.log)); // 'b', 'c', 'd'
+valuesSource("a", "b", "c", "d", "e")
+  .pipe(range(1, 3))
+  .pipe(listen(console.log)); // 'b', 'c', 'd'
 ```
 
 This is essentially `skip(start).pipe(take(offset))` but as a single operator.
@@ -805,7 +815,7 @@ This is essentially `skip(start).pipe(take(offset))` but as a single operator.
 `scanArray` is a specialized version of `scan` that accumulates all values into a single array, emitting the same array reference (mutated in place) after each push. Use it with `last()` to collect a stream into an array:
 
 ```typescript
-of(1, 2, 3).pipe(scanArray()).pipe(last()).pipe(listen(console.log)); // [1, 2, 3]
+valuesSource(1, 2, 3).pipe(scanArray()).pipe(last()).pipe(listen(console.log)); // [1, 2, 3]
 ```
 
 Because it mutates and re-emits the same array reference, it's more memory-efficient than creating a new array on each step. The tradeoff: if you hold a reference to an intermediate emission, it will reflect later mutations. Use `last()` to get the final result and avoid that.
@@ -870,7 +880,7 @@ Both approaches are equivalent. The split-variable style is clearer when the sid
 Here's a real-world pipeline: a search input that debounces, fetches with concurrency control, and shares results across multiple consumers — one for rendering, one for logging.
 
 ```typescript
-const $results = fromEventTarget(searchInput, "input")
+const $results = eventTargetSource(searchInput, "input")
   .pipe(map((e) => (e.target as HTMLInputElement).value))
   .pipe(debounce(300))
   .pipe(map((query) => fetch(`/api/search?q=${query}`)))

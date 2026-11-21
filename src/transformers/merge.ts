@@ -9,13 +9,13 @@ import { ValueOfConsumable } from "../core/types";
  * Terminates when the primary input (`$input`) terminates.
  *
  * @example
- * const s1 = fromInterval(500).pipe(map(() => 'A'));
- * const s2 = fromInterval(700).pipe(map(() => 'B'));
+ * const s1 = intervalSource(500).pipe(map(() => 'A'));
+ * const s2 = intervalSource(700).pipe(map(() => 'B'));
  * s1.pipe(merge(s2)).pipe(listen(console.log));
  */
 export class Merge<
   INPUT extends Consumable.AnyConsumable,
-  OTHERS extends [other: Consumable.AnyConsumable, ...others: Consumable.AnyConsumable[]],
+  OTHERS extends Consumable.AnyConsumable[],
   VALUE extends ValueOfConsumable<INPUT> | ValueOfConsumable<OTHERS[number]> =
     | ValueOfConsumable<INPUT>
     | ValueOfConsumable<OTHERS[number]>,
@@ -29,7 +29,10 @@ export class Merge<
 
     this.$inputs = [$input, ...$others];
   }
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE> {
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE> {
     const { next, terminate, ...rest } = options ?? {};
 
     const output$ = new Consumer(handler, {
@@ -82,13 +85,13 @@ export class Merge<
  * @param others Additional streams to merge with the input.
  *
  * @example
- * const s1 = fromInterval(500).pipe(map(() => 'A'));
- * const s2 = fromInterval(700).pipe(map(() => 'B'));
+ * const s1 = intervalSource(500).pipe(map(() => 'A'));
+ * const s2 = intervalSource(700).pipe(map(() => 'B'));
  * s1.pipe(merge(s2)).pipe(listen(console.log));
  */
 export function merge<
   INPUT extends Consumable.AnyConsumable,
-  OTHERS extends [other: Consumable.AnyConsumable, ...others: Consumable.AnyConsumable[]],
+  OTHERS extends Consumable.AnyConsumable[],
 >(...others: OTHERS) {
   return ($input: INPUT) => new Merge($input, others);
 }

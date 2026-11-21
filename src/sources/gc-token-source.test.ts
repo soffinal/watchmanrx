@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
-import { fromGCToken } from "./gc-token-source";
+import { gcTokenSource } from "./gc-token-source";
 
-describe("fromGCToken", () => {
+describe("gcTokenSource", () => {
   it("should emit after a token is garbage collected", async () => {
     let result = "";
     const { promise, resolve } = Promise.withResolvers();
@@ -9,7 +9,7 @@ describe("fromGCToken", () => {
     {
       const object = {} as any;
 
-      fromGCToken(object)
+      gcTokenSource(object)
         .consume(() => {
           result = "kechmahaja";
           resolve();

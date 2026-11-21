@@ -1,15 +1,14 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { every } from "./every";
 import { listen } from "./listen";
 import { Stream } from "../core/stream";
-import { last } from "./last";
 
 describe("every", () => {
   it("emits true when all values satisfy predicate", () => {
     let result: any;
 
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(
         every((v) => {
           return v > 0;
@@ -27,7 +26,7 @@ describe("every", () => {
   it("emits false and terminates early on first failure", () => {
     let result: any;
     const seen: number[] = [];
-    of(1, -1, 3, 4)
+    valuesSource(1, -1, 3, 4)
       .pipe(
         every((v) => {
           seen.push(v);

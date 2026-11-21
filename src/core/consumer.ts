@@ -1,4 +1,4 @@
-import type { TerminateReason } from "./types";
+import type { Empty, TerminateReason } from "./types";
 import { EMPTY, EMPTY_FUNCTION, EMPTY_THIS_FUNCTION } from "./consts";
 import { DefaultQueue } from "./default-queue";
 import { Queue } from "./queue";
@@ -42,6 +42,8 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
   /** Optional cleanup function returned by the `init` option. */
   private _initCleanup?: Consumer.InitCleanup;
 
+  private _inProcessValue: VALUE | Empty;
+
   constructor(
     handler: Consumer.Handler<VALUE>,
     options?: Consumer.Options<VALUE>,
@@ -54,6 +56,7 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
     this._credit = 0;
 
     this._initCleanup = this._options?.init?.(this);
+    this._inProcessValue = EMPTY;
   }
 
   /** Terminates the consumer with `"complete"` when used with `await using` keyword. */
@@ -111,11 +114,31 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
   get credit(): number {
     return this._credit;
   }
+  /** The value currently used by the handler */
+  get inProcessValue(): VALUE | typeof EMPTY {
+    return this._inProcessValue;
+  }
   /** Emits value when consumer receive it */
   get $push(): Source<VALUE> {
     return Source.from(
       (this._events.$push ??= new Stream<VALUE>({
         lastConsumerLeft: () => (this._events.$push = undefined),
+      })),
+    );
+  }
+  /** Emits value when it consumer start consume it */
+  get $beforeConsuming(): Source<VALUE> {
+    return Source.from(
+      (this._events.$beforeConsuming ??= new Stream<VALUE>({
+        lastConsumerLeft: () => (this._events.$beforeConsuming = undefined),
+      })),
+    );
+  }
+  /** Emits value when consumer finish consume it */
+  get $afterConsuming(): Source<VALUE> {
+    return Source.from(
+      (this._events.$afterConsuming ??= new Stream<VALUE>({
+        lastConsumerLeft: () => (this._events.$afterConsuming = undefined),
       })),
     );
   }
@@ -164,6 +187,8 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
    */
   push(value: VALUE): this {
     if (this._credit > 0 && !this._queue?.size) {
+      this._events.$beforeConsuming?.push(value);
+      this._inProcessValue = value;
       this._handler(this, value);
       this._credit--;
     } else {
@@ -177,7 +202,7 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
    *
    * @param values
    */
-  pushMany(...values: [VALUE, ...VALUE[]]): this {
+  pushMany(...values: VALUE[]): this {
     return this.pushBatch(values);
   }
   /**This is for pushing a big set of values
@@ -190,6 +215,7 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
     }
     return this;
   }
+
   /**
    * Grants one credit, allowing the next queued value (or the next upstream pull)
    * to be processed. Must be called from within the handler to continue the stream.
@@ -198,8 +224,13 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
     this._credit++;
 
     if (!this._queue?.size) {
+      if (this._inProcessValue !== EMPTY) {
+        this._events.$afterConsuming?.push(this._inProcessValue);
+        this._inProcessValue = EMPTY;
+      }
       this._options.next?.(this);
       this._events.$next?.push();
+
       return this;
     }
 
@@ -218,7 +249,8 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
         }
         break;
       }
-
+      this._events.$beforeConsuming?.push(value);
+      this._inProcessValue = value;
       this._handler(this, value);
       this._credit--;
     }
@@ -252,6 +284,11 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
       this._status = "complete";
     }
 
+    if (this._inProcessValue !== EMPTY) {
+      this._events.$afterConsuming?.push(this._inProcessValue);
+      this._inProcessValue = EMPTY;
+    }
+
     this._initCleanup?.(reason);
 
     this._options.terminate?.(this, reason);
@@ -259,7 +296,7 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
 
     this._queue = undefined;
 
-    this._options = {};
+    this._options = this._events = {};
 
     this._handler = EMPTY_FUNCTION;
 
@@ -292,6 +329,8 @@ export namespace Consumer {
   }
   export type Events<VALUE> = {
     $push?: Stream<VALUE>;
+    $beforeConsuming?: Stream<VALUE>;
+    $afterConsuming?: Stream<VALUE>;
     $next?: Stream<void>;
     $drain?: Stream<void>;
     $terminate?: Stream<TerminateReason>;

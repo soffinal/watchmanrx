@@ -8,7 +8,7 @@ import { TerminateReason, ValueOfConsumable } from "../core/types";
  * Values pass through unchanged.
  *
  * @example
- * of(1, 2, 3).pipe(tapTerminate(reason => console.log('done:', reason))).pipe(listen());
+ * valuesSource(1, 2, 3).pipe(tapTerminate(reason => console.log('done:', reason))).pipe(listen());
  */
 export class TapTerminate<
   INPUT extends Consumable.AnyConsumable,
@@ -21,7 +21,10 @@ export class TapTerminate<
     super();
   }
 
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     const { terminate, ...rest } = options ?? {};
     const { fn } = this;
     return this.$input.consume(handler, {
@@ -40,8 +43,10 @@ export class TapTerminate<
  * @param fn Callback invoked with the termination reason.
  *
  * @example
- * of(1, 2, 3).pipe(tapTerminate(reason => console.log('done:', reason))).pipe(listen());
+ * valuesSource(1, 2, 3).pipe(tapTerminate(reason => console.log('done:', reason))).pipe(listen());
  */
-export function tapTerminate<INPUT extends Consumable.AnyConsumable>(fn: (reason: TerminateReason) => void) {
+export function tapTerminate<INPUT extends Consumable.AnyConsumable>(
+  fn: (reason: TerminateReason) => void,
+) {
   return ($input: INPUT) => new TapTerminate($input, fn);
 }

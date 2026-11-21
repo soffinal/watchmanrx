@@ -1,7 +1,7 @@
 {
   "name": "@watchmanlab/stream",
-  "description": "A TypeScript reactive library that solves backpressure, async workflows, and event composition without making you think about any of that until you need to.",
-  "version": "0.4.1",
+  "description": "A Declarative TypeScript library that gives you lazy, composable, traceable, scalable, and controllable code execution.",
+  "version": "0.5.0",
   "author": "Soffinal <smari.sofiane@gmail.com>",
   "repository": {
     "type": "git",

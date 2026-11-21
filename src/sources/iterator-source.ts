@@ -9,7 +9,7 @@ import { Source } from "../core/source";
  * Terminates with `"complete"` when the iterator is done.
  *
  * @example
- * fromIterator([1, 2, 3].values()).pipe(listen(console.log));
+ * iteratorSource([1, 2, 3].values()).pipe(listen(console.log));
  */
 export class IteratorSource<VALUE> extends Source<VALUE> {
   constructor(private iterator: Iterator<VALUE> | (() => Iterator<VALUE>)) {
@@ -54,9 +54,9 @@ export class IteratorSource<VALUE> extends Source<VALUE> {
  * @param iterator An `Iterator` or a factory function returning one.
  *
  * @example
- * fromIterator([1, 2, 3].values()).pipe(listen(console.log));
+ * iteratorSource([1, 2, 3].values()).pipe(listen(console.log));
  */
-export function fromIterator<VALUE>(
+export function iteratorSource<VALUE>(
   iterator: Iterator<VALUE> | (() => Iterator<VALUE>),
 ): IteratorSource<VALUE> {
   return new IteratorSource(iterator);

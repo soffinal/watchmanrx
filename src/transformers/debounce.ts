@@ -21,7 +21,10 @@ export class Debounce<
   ) {
     super();
   }
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     const { terminate, ...rest } = options ?? {};
 
     const { ms } = this;
@@ -58,6 +61,9 @@ export class Debounce<
  * @example
  * stream.pipe(debounce(300)).pipe(listen(console.log));
  */
-export function debounce<INPUT extends Consumable.AnyConsumable, MS extends number>(ms: MS) {
+export function debounce<
+  INPUT extends Consumable.AnyConsumable,
+  MS extends number,
+>(ms: MS) {
   return ($input: INPUT) => new Debounce($input, ms);
 }

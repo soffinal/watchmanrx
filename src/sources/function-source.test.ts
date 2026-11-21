@@ -1,10 +1,10 @@
 import { describe, it, expect, mock } from "bun:test";
-import { fromFunction } from "./function-source";
+import { functionSource } from "./function-source";
 
-describe("fromFunction source", () => {
+describe("functionSource source", () => {
   it("should emit a two random values", () => {
     const fn = mock((v: string) => {});
-    const source = fromFunction(() => Math.random().toFixed(2));
+    const source = functionSource(() => Math.random().toFixed(2));
     source
       .consume((c, v) => {
         fn(v);
@@ -22,7 +22,7 @@ describe("fromFunction source", () => {
   });
   it("should terminate with complete after each execution ", () => {
     const fn = mock((v: string) => {});
-    const source = fromFunction(() => Math.random().toFixed(2));
+    const source = functionSource(() => Math.random().toFixed(2));
     const c1 = source
       .consume((c, v) => {
         fn(v);

@@ -1,3 +1,4 @@
+import {} from "bun";
 import { describe, it, expect } from "bun:test";
 import { DefaultConsumerSet } from "./default-consumer-set";
 import { Consumer } from "./consumer";

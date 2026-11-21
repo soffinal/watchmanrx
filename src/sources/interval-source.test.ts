@@ -1,13 +1,13 @@
 import { describe, it, expect } from "bun:test";
-import { fromInterval } from "./interval-source";
+import { intervalSource } from "./interval-source";
 import { take } from "../transformers/take";
 import { listen } from "../transformers/listen";
 
-describe("fromInterval", () => {
+describe("intervalSource", () => {
   it("emits incrementing counter values", async () => {
     const results: number[] = [];
     await new Promise<void>((done) => {
-      fromInterval(20)
+      intervalSource(20)
         .pipe(take(3))
         .pipe(
           listen((v) => {
@@ -23,7 +23,7 @@ describe("fromInterval", () => {
     const timestamps: number[] = [];
     const start = Date.now();
     await new Promise<void>((done) => {
-      fromInterval(50)
+      intervalSource(50)
         .pipe(take(2))
         .pipe(
           listen((v) => {
@@ -38,7 +38,7 @@ describe("fromInterval", () => {
   it("stops emitting after consumer terminates", async () => {
     const results: number[] = [];
     await new Promise<void>((done) => {
-      fromInterval(20)
+      intervalSource(20)
         .pipe(take(2))
         .pipe(
           listen((v) => {

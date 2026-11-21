@@ -7,7 +7,7 @@ import { ValueOfConsumable } from "../core/types";
  * Takes the first `n` values then terminates the stream.
  *
  * @example
- * fromInterval(100).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
+ * intervalSource(100).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
  */
 export class Take<
   INPUT extends Consumable.AnyConsumable,
@@ -20,7 +20,10 @@ export class Take<
     super();
   }
 
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE> {
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE> {
     let count = this.n;
     return this.$input.consume((consumer, value) => {
       if (count--) {
@@ -35,7 +38,7 @@ export class Take<
  * Takes the first `n` values then terminates the stream.
  *
  * @example
- * fromInterval(100).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
+ * intervalSource(100).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
  */
 /** Creates a `take` transformer. @param count Number of values to take. */
 export function take<INPUT extends Consumable.AnyConsumable>(n: number) {

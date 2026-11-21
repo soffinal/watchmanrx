@@ -10,14 +10,17 @@ import { last } from "./last";
  * To get the final count, just pipe {@link last} transformer after it.
  *
  * @example
- * of(3, 1, 4, 1, 5).pipe(min()).pipe(last()).pipe(listen(console.log)); // 1
+ * valuesSource(3, 1, 4, 1, 5).pipe(min()).pipe(last()).pipe(listen(console.log)); // 1
  */
 export class Min<INPUT extends Consumable<number>> extends Source<number> {
   constructor(private $input: INPUT) {
     super();
   }
 
-  override consume(handler: Consumer.Handler<number>, options?: Consumer.Options<number>): Consumer<number> {
+  override consume(
+    handler: Consumer.Handler<number>,
+    options?: Consumer.Options<number>,
+  ): Consumer<number> {
     let min = null as number | null;
 
     return this.$input.consume((c, v) => {
@@ -38,7 +41,7 @@ export class Min<INPUT extends Consumable<number>> extends Source<number> {
  * To get the final count, just pipe {@link last} transformer after it.
  *
  * @example
- * of(3, 1, 4, 1, 5).pipe(min()).pipe(last()).pipe(listen(console.log)); // 1
+ * valuesSource(3, 1, 4, 1, 5).pipe(min()).pipe(last()).pipe(listen(console.log)); // 1
  */
 export function min<INPUT extends Consumable<number>>() {
   return ($input: INPUT) => new Min($input);

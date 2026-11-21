@@ -9,12 +9,12 @@ import { last } from "./last";
  * pipe {@link last} after it and you get a standard `reduce` behavior
  *
  * @example
- * of(1, 2, 3)
+ * valuesSource(1, 2, 3)
     .pipe(scan(0, (acc, v) => acc + v))
     .pipe(listen(console.log)); // 1, 3, 6
 
  * @example  
- * of(1, 2, 3)
+ * valuesSource(1, 2, 3)
     .pipe(scan(0, (acc, v) => acc + v))
     .pipe(last())
     .pipe(listen(console.log)); // 6
@@ -32,7 +32,10 @@ export class Scan<
     super();
   }
 
-  override consume(handler: Consumer.Handler<ACC>, options?: Consumer.Options<ACC> | undefined): Consumer<ACC> {
+  override consume(
+    handler: Consumer.Handler<ACC>,
+    options?: Consumer.Options<ACC> | undefined,
+  ): Consumer<ACC> {
     let { acc, reducer } = this;
     return this.$input.consume((c, v) => {
       acc = reducer(acc, v);
@@ -48,11 +51,11 @@ export class Scan<
  * @param reducer `(acc, value) => acc`.
  *
  * @example 
- * of(1, 2, 3)
+ * valuesSource(1, 2, 3)
     .pipe(scan(0, (acc, v) => acc + v))
     .pipe(listen(console.log)); // 1, 3, 6
  * @example 
- * of(1, 2, 3)
+ * valuesSource(1, 2, 3)
     .pipe(scan(0, (acc, v) => acc + v))
     .pipe(last())
     .pipe(listen(console.log)); // 6

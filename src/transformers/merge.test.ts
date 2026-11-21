@@ -1,5 +1,5 @@
+import {} from "bun";
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
 import { merge } from "./merge";
 import { listen } from "./listen";
 import { Stream } from "../core/stream";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { passive } from "./passive";
 import { listen } from "./listen";
 import { Stream } from "../core/stream";
@@ -29,7 +29,7 @@ describe("passive", () => {
 
   it("does not pull values on its own — no values without an active driver", () => {
     const results: number[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(passive())
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([]);

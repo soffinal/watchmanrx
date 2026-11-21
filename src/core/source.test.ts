@@ -2,7 +2,7 @@ import {} from "bun";
 import { describe, it, expect } from "bun:test";
 import { Source } from "./source";
 import { Stream } from "./stream";
-import { fromIterable } from "../sources/iterable-source";
+import { iterableSource } from "../sources/iterable-source";
 import { EMPTY } from "./consts";
 
 describe("Source", () => {
@@ -41,7 +41,7 @@ describe("Source", () => {
       expect(results).toEqual([1, 2, 3]);
     });
     it("exit the loop for-await-of when source is done", async () => {
-      for await (const _ of fromIterable([1, 2, 3])) {
+      for await (const _ of iterableSource([1, 2, 3])) {
       }
 
       expect(true).toBe(true);
@@ -49,7 +49,7 @@ describe("Source", () => {
   });
   describe("Symbol.iterator", () => {
     it("yields values via for-of", () => {
-      const source = fromIterable([1, 2, 3]);
+      const source = iterableSource([1, 2, 3]);
       const results: number[] = [];
 
       for (const v of source) {
@@ -62,32 +62,32 @@ describe("Source", () => {
 
   describe("collect values", () => {
     it("must returns a single value on sync mode", () => {
-      const source = fromIterable([1, 2, 3]);
+      const source = iterableSource([1, 2, 3]);
       const value = source.collect(1, { sync: true });
       expect(value).toBe(1);
     });
     it("must returns a single value on async mode", async () => {
-      const source = fromIterable([1, 2, 3]);
+      const source = iterableSource([1, 2, 3]);
       const value = await source.collect(1);
       expect(value).toBe(1);
     });
     it("must returns EMPTY when requesting a single value sync", () => {
-      const source = fromIterable([]);
+      const source = iterableSource([]);
       const value1 = source.collect(1, { sync: true });
       expect(value1).toBe(EMPTY);
     });
     it("must returns EMPTY when requesting a single value async", async () => {
-      const source = fromIterable([]);
+      const source = iterableSource([]);
       const value2 = await source.collect(1);
       expect(value2).toBe(EMPTY);
     });
     it("must returns multiple values on sync mode", () => {
-      const source = fromIterable([1, 2, 3]);
+      const source = iterableSource([1, 2, 3]);
       const value = source.collect(3, { sync: true });
       expect(value).toEqual([1, 2, 3]);
     });
     it("must returns multiple values on async mode", async () => {
-      const source = fromIterable([1, 2, 3]);
+      const source = iterableSource([1, 2, 3]);
       const value = await source.collect(2);
       expect(value).toEqual([1, 2]);
     });

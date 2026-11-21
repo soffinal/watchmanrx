@@ -11,7 +11,7 @@ import { ValueOfConsumable } from "../core/types";
  * @template MAPPED The output value type.
  *
  * @example
- * of(1, 2, 3).pipe(map(v => v * 2)).pipe(listen(console.log)); // 2, 4, 6
+ * valuesSource(1, 2, 3).pipe(map(v => v * 2)).pipe(listen(console.log)); // 2, 4, 6
  */
 export class Map<
   INPUT extends Consumable.AnyConsumable,
@@ -24,10 +24,16 @@ export class Map<
   ) {
     super();
   }
-  override consume(handler: Consumer.Handler<MAPPED>, options?: Consumer.Options<MAPPED>): Consumer<MAPPED> {
+  override consume(
+    handler: Consumer.Handler<MAPPED>,
+    options?: Consumer.Options<MAPPED>,
+  ): Consumer<MAPPED> {
     let index = 0;
 
-    return this.$input.consume((c, v) => handler(c, this.mapper(v, index++)), options);
+    return this.$input.consume(
+      (c, v) => handler(c, this.mapper(v, index++)),
+      options,
+    );
   }
 }
 /**
@@ -40,7 +46,7 @@ export class Map<
  * @param mapper Function `(value, index) => MAPPED` applied to each value.
  *
  * @example
- * of(1, 2, 3).pipe(map(v => v * 2)).pipe(listen(console.log)); // 2, 4, 6
+ * valuesSource(1, 2, 3).pipe(map(v => v * 2)).pipe(listen(console.log)); // 2, 4, 6
  */
 export function map<
   INPUT extends Consumable.AnyConsumable,

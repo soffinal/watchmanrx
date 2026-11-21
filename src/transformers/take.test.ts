@@ -1,13 +1,13 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { take } from "./take";
 import { listen } from "./listen";
-import { fromRange } from "../sources/range-source";
+import { rangeSource } from "../sources/range-source";
 
 describe("take", () => {
   it("takes the first N values then terminates", () => {
     const results: number[] = [];
-    of(1, 2, 3, 4, 5)
+    valuesSource(1, 2, 3, 4, 5)
       .pipe(take(3))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1, 2, 3]);
@@ -15,7 +15,7 @@ describe("take", () => {
 
   it("take(0) emits nothing", () => {
     const results: number[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(take(0))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([]);
@@ -23,7 +23,7 @@ describe("take", () => {
 
   it("take more than available emits all", () => {
     const results: number[] = [];
-    of(1, 2)
+    valuesSource(1, 2)
       .pipe(take(10))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1, 2]);
@@ -31,7 +31,7 @@ describe("take", () => {
 
   it("terminates upstream after N values", () => {
     const results: number[] = [];
-    fromRange(1, 1000)
+    rangeSource(1, 1000)
       .pipe(take(3))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1, 2, 3]);

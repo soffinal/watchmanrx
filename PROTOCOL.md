@@ -44,7 +44,10 @@ A `Consumable` represents a state-free capability provider. It is **not a produc
 
 ```typescript
 export interface Consumable<VALUE> {
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE>;
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE>;
 }
 ```
 

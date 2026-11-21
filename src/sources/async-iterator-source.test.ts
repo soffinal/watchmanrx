@@ -1,17 +1,21 @@
 import { describe, it, expect } from "bun:test";
-import { fromAsyncIterator } from "./async-iterator-source";
-import { listen } from "../transformers/listen";
+import { asyncIteratorSource } from "./async-iterator-source";
 
-describe("fromAsyncIterator", () => {
+describe("asyncIteratorSource", () => {
   it("emits values from an async iterator", async () => {
     const results: number[] = [];
     let counter = 0;
     const iter: AsyncIterator<number> = {
-      next: () => Promise.resolve(++counter > 3 ? { value: undefined as any, done: true } : { value: counter }),
+      next: () =>
+        Promise.resolve(
+          ++counter > 3
+            ? { value: undefined as any, done: true }
+            : { value: counter },
+        ),
     };
 
     await new Promise<void>((done) => {
-      fromAsyncIterator(iter)
+      asyncIteratorSource(iter)
         .consume(
           (self, v) => {
             results.push(v);
@@ -30,11 +34,16 @@ describe("fromAsyncIterator", () => {
     const results: number[] = [];
     let counter = 0;
     const factory = () => ({
-      next: () => Promise.resolve(++counter > 2 ? { value: undefined as any, done: true } : { value: counter }),
+      next: () =>
+        Promise.resolve(
+          ++counter > 2
+            ? { value: undefined as any, done: true }
+            : { value: counter },
+        ),
     });
 
     await new Promise<void>((done) => {
-      fromAsyncIterator(factory)
+      asyncIteratorSource(factory)
         .consume(
           (self, v) => {
             results.push(v);
@@ -55,7 +64,7 @@ describe("fromAsyncIterator", () => {
     };
 
     await new Promise<void>((done) => {
-      fromAsyncIterator(iter)
+      asyncIteratorSource(iter)
         .consume((self, v) => self.next(), {
           terminate: (_, r) => {
             status = r;

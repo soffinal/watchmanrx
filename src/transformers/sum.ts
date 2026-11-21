@@ -9,14 +9,17 @@ import { last } from "./last";
  * To get the final count, just pipe {@link last} transformer after it.
  *
  * @example
- * of(1, 2, 3).pipe(sum()).pipe(last()).pipe(listen(console.log)); // 6
+ * valuesSource(1, 2, 3).pipe(sum()).pipe(last()).pipe(listen(console.log)); // 6
  */
 export class Sum<INPUT extends Consumable<number>> extends Source<number> {
   constructor(private $input: INPUT) {
     super();
   }
 
-  override consume(handler: Consumer.Handler<number>, options?: Consumer.Options<number>): Consumer<number> {
+  override consume(
+    handler: Consumer.Handler<number>,
+    options?: Consumer.Options<number>,
+  ): Consumer<number> {
     let total = 0;
 
     return this.$input.consume((c, v) => {
@@ -33,7 +36,7 @@ export class Sum<INPUT extends Consumable<number>> extends Source<number> {
  * To get the final count, just pipe {@link last} transformer after it.
  *
  * @example
- * of(1, 2, 3).pipe(sum()).pipe(last()).pipe(listen(console.log)); // 6
+ * valuesSource(1, 2, 3).pipe(sum()).pipe(last()).pipe(listen(console.log)); // 6
  */
 export function sum<INPUT extends Consumable<number>>() {
   return ($input: INPUT) => new Sum($input);

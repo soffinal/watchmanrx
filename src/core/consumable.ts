@@ -8,13 +8,19 @@ import { Consumer } from "./consumer";
  * @template VALUE The type of values emitted.
  */
 export interface Consumable<VALUE> {
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE>;
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE>;
 }
 
 export namespace Consumable {
   export type AnyConsumable = Consumable<any>;
 
   export interface Consume<VALUE> {
-    (handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE>;
+    (
+      handler: Consumer.Handler<VALUE>,
+      options?: Consumer.Options<VALUE>,
+    ): Consumer<VALUE>;
   }
 }

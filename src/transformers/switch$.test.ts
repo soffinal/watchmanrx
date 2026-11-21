@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { switch$ } from "./switch$";
 import { listen } from "./listen";
 import { Stream } from "../core/stream";
@@ -8,7 +8,7 @@ import { Consumable } from "../core/consumable";
 describe("switch$", () => {
   it("does not work with a replayable sources", () => {
     const results: number[] = [];
-    of(of(1, 2), of(3, 4))
+    valuesSource(valuesSource(1, 2), valuesSource(3, 4))
       .pipe(switch$())
       .pipe(listen((v) => results.push(v)));
 
@@ -16,10 +16,12 @@ describe("switch$", () => {
   });
 
   it("passes through non-consumable values directly", () => {
-    const inner1 = of(1, 2);
-    const inner2 = of("a", "b");
+    const inner1 = valuesSource(1, 2);
+    const inner2 = valuesSource("a", "b");
     const results: any[] = [];
-    const stream = new Stream<number | Consumable<number> | Consumable<string>>();
+    const stream = new Stream<
+      number | Consumable<number> | Consumable<string>
+    >();
 
     stream.pipe(switch$()).pipe(listen((v) => results.push(v)));
 

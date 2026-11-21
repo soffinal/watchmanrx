@@ -7,7 +7,7 @@ import { Source } from "../core/source";
  *
  * @example
  * const controller = new AbortController();
- * fromAbortSignal(controller.signal).pipe(listen(() => console.log('aborted')));
+ * abortSignalSource(controller.signal).pipe(listen(() => console.log('aborted')));
  * controller.abort();
  */
 
@@ -15,7 +15,10 @@ export class AbortSignalSource extends Source<void> {
   constructor(private signal: AbortSignal) {
     super();
   }
-  consume(handler: Consumer.Handler<void>, options?: Consumer.Options<void>): Consumer<void> {
+  consume(
+    handler: Consumer.Handler<void>,
+    options?: Consumer.Options<void>,
+  ): Consumer<void> {
     const { init, terminate, ...rest } = options ?? {};
 
     let abortController = new AbortController();
@@ -56,9 +59,9 @@ export class AbortSignalSource extends Source<void> {
  *
  * @example
  * const controller = new AbortController();
- * fromAbortSignal(controller.signal).pipe(listen(() => console.log('aborted')));
+ * abortSignalSource(controller.signal).pipe(listen(() => console.log('aborted')));
  * controller.abort();
  */
-export function fromAbortSignal(signal: AbortSignal): AbortSignalSource {
+export function abortSignalSource(signal: AbortSignal): AbortSignalSource {
   return new AbortSignalSource(signal);
 }

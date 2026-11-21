@@ -9,7 +9,7 @@ import { Source } from "../core/source";
  * To get the final count, just pipe `last()` transformer after it.
  *
  * @example
- * of(3, 1, 4, 1, 5).pipe(max()).pipe(last()).pipe(listen(console.log)); // 5
+ * valuesSource(3, 1, 4, 1, 5).pipe(max()).pipe(last()).pipe(listen(console.log)); // 5
  */
 export class Max<INPUT extends Consumable<number>> extends Source<number> {
   constructor(private $input: INPUT) {
@@ -39,7 +39,7 @@ export class Max<INPUT extends Consumable<number>> extends Source<number> {
  * To get the final count, just pipe `last()` transformer after it.
  *
  * @example
- * of(3, 1, 4, 1, 5).pipe(max()).pipe(last()).pipe(listen(console.log)); // 5
+ * valuesSource(3, 1, 4, 1, 5).pipe(max()).pipe(last()).pipe(listen(console.log)); // 5
  */
 export function max<INPUT extends Consumable<number>>() {
   return ($input: INPUT) => new Max($input);
