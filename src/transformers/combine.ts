@@ -6,7 +6,7 @@ import { Empty, ValueOfConsumable } from "../core/types";
 
 /**
  * Emits the value or {@link EMPTY} from each input whenever any input emits.
- * To get the CombineLatest behvior, use `zip` after piping `latest` to each input .
+ * To get the CombineLatest behvior,  pipe `latest` to each input before passing it to this transformer .
  * Unlike `zip`, does not wait for all inputs to have a value — uses the last known value or {@link EMPTY} .
  * Terminate when any of the inputs terminate.
  *
@@ -84,7 +84,7 @@ export class Combine<
 
 /**
  * Emits the value or {@link EMPTY} from each input whenever any input emits.
- * To get the CombineLatest behvior, use `zip` after piping `latest` to each input .
+ * To get the CombineLatest behvior,  pipe `latest` to each input before passing it to this transformer .
  * Unlike `zip`, does not wait for all inputs to have a value — uses the last known value or {@link EMPTY} .
  * Terminate when any of the inputs terminate.
  *

@@ -1,6 +1,6 @@
 {
   "name": "@watchmanlab/stream",
-  "description": "A Declarative TypeScript library that gives you lazy, composable, traceable, scalable, and controllable code execution.",
+  "description": "A Declarative TypeScript library that gives you lazy, reusable, composable, traceable, scalable, and controllable code execution.",
   "version": "0.5.0",
   "author": "Soffinal <smari.sofiane@gmail.com>",
   "repository": {
@@ -21,14 +21,20 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "PROTOCOL.md"
   ],
   "keywords": [
     "reactive",
     "streams",
     "backpressure",
-    "pull-on-push",
+    "pull",
+    "push",
     "async",
+    "lazy",
+    "eager",
+    "hot",
+    "cold",
     "typescript",
     "emitter",
     "observable",
