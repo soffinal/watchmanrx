@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { delay } from "./delay";
 import { listen } from "./listen";
 
@@ -8,7 +8,7 @@ describe("delay", () => {
     const results: number[] = [];
     const start = Date.now();
     await new Promise<void>((done) => {
-      of(1, 2, 3)
+      valuesSource(1, 2, 3)
         .pipe(delay(50))
         .pipe(
           listen((v) => {
@@ -26,7 +26,7 @@ describe("delay", () => {
     const results: number[] = [];
     const start = Date.now();
     await new Promise<void>((done) => {
-      of(1, 2, 3)
+      valuesSource(1, 2, 3)
         .pipe(delay(-10))
         .pipe(
           listen((v) => {

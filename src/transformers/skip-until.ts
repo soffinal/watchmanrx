@@ -7,7 +7,7 @@ import { ValueOfConsumable } from "../core/types";
  * Skips all values until the notifier emits, then passes all subsequent values through.
  *
  * @example
- * const start = fromTimeout(600);
+ * const start = timeoutSource(600);
  * stream.pipe(skipUntil(start)).pipe(listen(console.log));
  */
 export class SkipUntil<
@@ -20,7 +20,10 @@ export class SkipUntil<
   ) {
     super();
   }
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE> {
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE> {
     const { terminate, ...rest } = options ?? {};
 
     let skip = true;
@@ -56,9 +59,11 @@ export class SkipUntil<
  * @param $notifier Start passing values when this emits.
  *
  * @example
- * const start = fromTimeout(600);
+ * const start = timeoutSource(600);
  * stream.pipe(skipUntil(start)).pipe(listen(console.log));
  */
-export function skipUntil<INPUT extends Consumable.AnyConsumable>($notifier: Consumable.AnyConsumable) {
+export function skipUntil<INPUT extends Consumable.AnyConsumable>(
+  $notifier: Consumable.AnyConsumable,
+) {
   return ($input: INPUT) => new SkipUntil($input, $notifier);
 }

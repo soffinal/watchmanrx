@@ -5,7 +5,7 @@ import { AbortSignalSource } from "./abort-signal-source";
  *
  * @example
  * const controller = new AbortController();
- * fromAbortController(controller).pipe(listen(() => console.log('aborted')));
+ * abortControllerSource(controller).pipe(listen(() => console.log('aborted')));
  * controller.abort();
  */
 export class AbortControllerSource extends AbortSignalSource {
@@ -20,9 +20,11 @@ export class AbortControllerSource extends AbortSignalSource {
  *
  * @example
  * const controller = new AbortController();
- * fromAbortController(controller).pipe(listen(() => console.log('aborted')));
+ * abortControllerSource(controller).pipe(listen(() => console.log('aborted')));
  * controller.abort();
  */
-export function fromAbortController(controller: AbortController): AbortControllerSource {
+export function abortControllerSource(
+  controller: AbortController,
+): AbortControllerSource {
   return new AbortControllerSource(controller);
 }

@@ -9,8 +9,8 @@ import { ValueOfConsumable } from "../core/types";
  * and a `$flushes` notifier to reset the seen-set.
  *
  * @example
- * of(1, 1, 2, 2, 3).pipe(distinct()).pipe(listen(console.log)); // 1, 2, 3
- * of({id:1},{id:1},{id:2}).pipe(distinct(v => v.id)).pipe(listen(console.log));
+ * valuesSource(1, 1, 2, 2, 3).pipe(distinct()).pipe(listen(console.log)); // 1, 2, 3
+ * valuesSource({id:1},{id:1},{id:2}).pipe(distinct(v => v.id)).pipe(listen(console.log));
  */
 export class Distinct<
   INPUT extends Consumable.AnyConsumable,
@@ -24,7 +24,10 @@ export class Distinct<
   ) {
     super();
   }
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     const { terminate, ...rest } = options ?? {};
     const { keySelector } = this;
     const valuesOrKeys = new Set<VALUE | KEY>();
@@ -83,8 +86,8 @@ export class Distinct<
  * @param $flushes Optional notifier that resets the seen-set when it emits.
  *
  * @example
- * of(1, 1, 2, 2, 3).pipe(distinct()).pipe(listen(console.log)); // 1, 2, 3
- * of({id:1},{id:1},{id:2}).pipe(distinct(v => v.id)).pipe(listen(console.log));
+ * valuesSource(1, 1, 2, 2, 3).pipe(distinct()).pipe(listen(console.log)); // 1, 2, 3
+ * valuesSource({id:1},{id:1},{id:2}).pipe(distinct(v => v.id)).pipe(listen(console.log));
  */
 
 export function distinct<

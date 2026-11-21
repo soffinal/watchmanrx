@@ -1,23 +1,26 @@
+import {} from "bun";
 import { describe, it, expect } from "bun:test";
-import { fromIterator } from "./iterator-source";
+import { iteratorSource } from "./iterator-source";
 import { listen } from "../transformers/listen";
 
-describe("fromIterator", () => {
+describe("iteratorSource", () => {
   it("emits values from an iterator", () => {
     const results: number[] = [];
-    fromIterator([1, 2, 3].values()).pipe(listen((v) => results.push(v)));
+    iteratorSource([1, 2, 3].values()).pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1, 2, 3]);
   });
 
   it("accepts a factory function returning an iterator", () => {
     const results: number[] = [];
-    fromIterator(() => [10, 20, 30].values()).pipe(listen((v) => results.push(v)));
+    iteratorSource(() => [10, 20, 30].values()).pipe(
+      listen((v) => results.push(v)),
+    );
     expect(results).toEqual([10, 20, 30]);
   });
 
   it("completes when iterator is done", () => {
     let status: string | undefined;
-    fromIterator([1].values())
+    iteratorSource([1].values())
       .consume((self, v) => self.next(), {
         terminate: (_, r) => (status = r),
       })
@@ -27,7 +30,7 @@ describe("fromIterator", () => {
 
   it("emits nothing for empty iterator", () => {
     const results: number[] = [];
-    fromIterator([].values()).pipe(listen((v) => results.push(v)));
+    iteratorSource<number>([].values()).pipe(listen((v) => results.push(v)));
     expect(results).toEqual([]);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { terminate } from "./terminate";
 import { listen } from "./listen";
 import { Stream } from "../core/stream";
@@ -7,7 +7,7 @@ import { Stream } from "../core/stream";
 describe("terminate", () => {
   it("emits complete reason when stream completes", () => {
     let result: any;
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(terminate())
       .pipe(listen((v) => (result = v)));
     expect(result).toBe("complete");
@@ -23,7 +23,7 @@ describe("terminate", () => {
 
   it("ignores all values — only emits on termination", () => {
     const results: any[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(terminate())
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual(["complete"]);
@@ -31,7 +31,7 @@ describe("terminate", () => {
 
   it("emits exactly once", () => {
     const results: any[] = [];
-    of(1, 2, 3, 4, 5)
+    valuesSource(1, 2, 3, 4, 5)
       .pipe(terminate())
       .pipe(listen((v) => results.push(v)));
     expect(results.length).toBe(1);

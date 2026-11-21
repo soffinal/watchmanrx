@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
-import { fromAsyncIterable } from "./async-iterable-source";
+import { asyncIterableSource } from "./async-iterable-source";
 
-describe("fromAsyncIterable", () => {
+describe("asyncIterableSource", () => {
   it("emits values from an async iterable", async () => {
     const results: number[] = [];
 
@@ -9,13 +9,16 @@ describe("fromAsyncIterable", () => {
       [Symbol.asyncIterator]() {
         let i = 0;
         return {
-          next: () => Promise.resolve(++i > 3 ? { value: undefined as any, done: true } : { value: i }),
+          next: () =>
+            Promise.resolve(
+              ++i > 3 ? { value: undefined as any, done: true } : { value: i },
+            ),
         };
       },
     };
 
     await new Promise<void>((done) => {
-      fromAsyncIterable(iterable)
+      asyncIterableSource(iterable)
         .consume(
           (self, v) => {
             results.push(v);
@@ -37,12 +40,15 @@ describe("fromAsyncIterable", () => {
       [Symbol.asyncIterator]() {
         let i = 0;
         return {
-          next: () => Promise.resolve(++i > 2 ? { value: undefined as any, done: true } : { value: i }),
+          next: () =>
+            Promise.resolve(
+              ++i > 2 ? { value: undefined as any, done: true } : { value: i },
+            ),
         };
       },
     });
 
-    const source = fromAsyncIterable(makeIterable());
+    const source = asyncIterableSource(makeIterable());
 
     await new Promise<void>((done) => {
       let finished = 0;

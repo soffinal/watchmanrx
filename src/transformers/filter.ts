@@ -16,7 +16,7 @@ import { ValueOfConsumable } from "../core/types";
  * @template FILTERED The narrowed output type (supports type guards).
  *
  * @example
- * const f = of(1,2,3,4).pipe(filter(v => v % 2 === 0));
+ * const f = valuesSource(1,2,3,4).pipe(filter(v => v % 2 === 0));
  * f.$complements.pipe(listen(console.log)); // 1, 3
  * f.pipe(listen(console.log));              // 2, 4
  */
@@ -45,7 +45,10 @@ export class Filter<
       })),
     );
   }
-  consume(handler: Consumer.Handler<FILTERED>, options?: Consumer.Options<FILTERED>): Consumer<FILTERED> {
+  consume(
+    handler: Consumer.Handler<FILTERED>,
+    options?: Consumer.Options<FILTERED>,
+  ): Consumer<FILTERED> {
     let filteredIndex = 0;
     let complementIndex = 0;
 
@@ -75,7 +78,7 @@ export class Filter<
  * @param complement Optional inline callback for rejected values.
  *
  * @example
- * const f = of(1,2,3,4).pipe(filter(v => v % 2 === 0));
+ * const f = valuesSource(1,2,3,4).pipe(filter(v => v % 2 === 0));
  * f.$complements.pipe(listen(console.log)); // 1, 3
  * f.pipe(listen(console.log));              // 2, 4
  */
@@ -83,7 +86,10 @@ export function filter<
   INPUT extends Consumable.AnyConsumable,
   VALUE extends ValueOfConsumable<INPUT> = ValueOfConsumable<INPUT>,
   FILTERED extends VALUE = VALUE,
->(predicate: Filter.Predicate<VALUE, FILTERED>, complement?: (value: VALUE, index: number) => void) {
+>(
+  predicate: Filter.Predicate<VALUE, FILTERED>,
+  complement?: (value: VALUE, index: number) => void,
+) {
   return ($input: INPUT) => new Filter($input, predicate, complement);
 }
 

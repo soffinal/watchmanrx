@@ -8,7 +8,7 @@ import { ValueOfConsumable } from "../core/types";
  * Emits any remaining values as a partial batch on stream completion.
  *
  * @example
- * of(1,2,3,4,5).pipe(batch(2)).pipe(listen(console.log)); // [1,2], [3,4], [5]
+ * valuesSource(1,2,3,4,5).pipe(batch(2)).pipe(listen(console.log)); // [1,2], [3,4], [5]
  */
 export class Batch<
   INPUT extends Consumable.AnyConsumable,
@@ -21,7 +21,10 @@ export class Batch<
     super();
   }
 
-  consume(handler: Consumer.Handler<VALUE[]>, options?: Consumer.Options<VALUE[]>): Consumer<VALUE[]> {
+  consume(
+    handler: Consumer.Handler<VALUE[]>,
+    options?: Consumer.Options<VALUE[]>,
+  ): Consumer<VALUE[]> {
     const { terminate, ...rest } = options ?? {};
 
     const batch = [] as any[];
@@ -59,7 +62,7 @@ export class Batch<
  * @param size Maximum number of values per batch.
  *
  * @example
- * of(1,2,3,4,5).pipe(batch(2)).pipe(listen(console.log)); // [1,2], [3,4], [5]
+ * valuesSource(1,2,3,4,5).pipe(batch(2)).pipe(listen(console.log)); // [1,2], [3,4], [5]
  */
 export function batch<INPUT extends Consumable.AnyConsumable>(size: number) {
   return (input: INPUT) => new Batch(input, size);

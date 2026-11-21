@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { last } from "./last";
 import { listen } from "./listen";
 import { Stream } from "../core/stream";
@@ -8,7 +8,7 @@ import { EMPTY } from "../core/consts";
 describe("last", () => {
   it("emits the last value on completion", () => {
     let result: any;
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(last())
       .pipe(listen((v) => (result = v)));
     expect(result).toBe(3);
@@ -33,7 +33,7 @@ describe("last", () => {
 
   it("only emits once", () => {
     const results: number[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(last())
       .pipe(listen((v) => results.push(v as number)));
     expect(results.length).toBe(1);

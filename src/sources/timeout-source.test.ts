@@ -1,12 +1,12 @@
 import { describe, it, expect } from "bun:test";
-import { fromTimeout } from "./timeout-source";
+import { timeoutSource } from "./timeout-source";
 import { listen } from "../transformers/listen";
 
-describe("fromTimeout", () => {
+describe("timeoutSource", () => {
   it("emits a value after the specified delay", async () => {
     const results: string[] = [];
     await new Promise<void>((done) => {
-      fromTimeout(30, "hello").pipe(
+      timeoutSource(30, "hello").pipe(
         listen((v) => {
           results.push(v);
           done();
@@ -19,7 +19,7 @@ describe("fromTimeout", () => {
   it("emits undefined when no value is provided", async () => {
     let result: any = "not-set";
     await new Promise<void>((done) => {
-      fromTimeout(20).pipe(
+      timeoutSource(20).pipe(
         listen((v) => {
           result = v;
           done();
@@ -32,7 +32,7 @@ describe("fromTimeout", () => {
   it("completes after emitting", async () => {
     let status: string | undefined;
     await new Promise<void>((done) => {
-      fromTimeout(20, 1)
+      timeoutSource(20, 1)
         .consume((self, v) => self.next(), {
           terminate: (_, r) => {
             status = r;
@@ -47,7 +47,7 @@ describe("fromTimeout", () => {
   it("emits only once", async () => {
     const results: number[] = [];
     await new Promise<void>((done) => {
-      fromTimeout(20, 42).pipe(
+      timeoutSource(20, 42).pipe(
         listen((v) => {
           results.push(v);
           done();

@@ -16,11 +16,11 @@ import { Empty, TerminateReason } from "./types";
  * @template VALUE The type of values emitted by this source.
  *
  * @example
- * const source = fromIterable([1, 2, 3]);
+ * const source = iterableSource([1, 2, 3]);
  * source.pipe(map(v => v * 2)).pipe(listen(console.log));
  *
  * @example
- * for await (const value of fromIterable([1, 2, 3])) {
+ * for await (const value of iterableSource([1, 2, 3])) {
  *   console.log(value);
  * }
  */

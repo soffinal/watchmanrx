@@ -7,16 +7,24 @@ import { Source } from "../core/source";
  * The `AsyncIterator` will be shared across all consumers.
  *
  * @example
- * fromAsyncIterator(asyncIterator).pipe(listen(console.log));
+ * asyncIteratorSource(asyncIterator).pipe(listen(console.log));
  */
 export class AsyncIteratorSource<VALUE> extends Source<VALUE> {
-  constructor(private asyncItrator: AsyncIterator<VALUE> | (() => AsyncIterator<VALUE>)) {
+  constructor(
+    private asyncItrator: AsyncIterator<VALUE> | (() => AsyncIterator<VALUE>),
+  ) {
     super();
   }
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE> {
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE> {
     const { next, terminate, ...rest } = options ?? {};
 
-    const iter = typeof this.asyncItrator === "function" ? this.asyncItrator() : this.asyncItrator;
+    const iter =
+      typeof this.asyncItrator === "function"
+        ? this.asyncItrator()
+        : this.asyncItrator;
 
     return new Consumer(handler, {
       ...rest,
@@ -45,9 +53,9 @@ export class AsyncIteratorSource<VALUE> extends Source<VALUE> {
  * @param asyncItrator An `AsyncIterator` or a factory function returning one.
  *
  * @example
- * fromAsyncIterator(asyncIterator).pipe(listen(console.log));
+ * asyncIteratorSource(asyncIterator).pipe(listen(console.log));
  */
-export function fromAsyncIterator<VALUE>(
+export function asyncIteratorSource<VALUE>(
   asyncItrator: AsyncIterator<VALUE> | (() => AsyncIterator<VALUE>),
 ): AsyncIteratorSource<VALUE> {
   return new AsyncIteratorSource(asyncItrator);

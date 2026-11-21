@@ -1,12 +1,13 @@
+import {} from "bun";
 import { describe, it, expect, mock } from "bun:test";
-import { fromAbortSignal } from "./abort-signal-source";
+import { abortSignalSource } from "./abort-signal-source";
 import { listen } from "../transformers/listen";
 
-describe("fromAbortSignal", () => {
+describe("abortSignalSource", () => {
   it("emit when abort signal abort", () => {
     const controller = new AbortController();
     const fn = mock(() => {});
-    fromAbortSignal(controller.signal).pipe(listen(fn));
+    abortSignalSource(controller.signal).pipe(listen(fn));
     controller.abort();
     expect(fn).toHaveBeenCalled();
   });
@@ -15,7 +16,7 @@ describe("fromAbortSignal", () => {
     const controller = new AbortController();
     const fn = mock(() => {});
     controller.abort();
-    fromAbortSignal(controller.signal).pipe(listen(fn));
+    abortSignalSource(controller.signal).pipe(listen(fn));
     expect(fn).toHaveBeenCalled();
   });
 });

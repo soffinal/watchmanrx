@@ -7,7 +7,7 @@ import { Source } from "../core/source";
  *
  * @example
  * let obj: object | null = {};
- * fromGCToken(obj).pipe(listen(() => console.log('collected')));
+ * gcTokenSource(obj).pipe(listen(() => console.log('collected')));
  * obj = null;
  */
 export class GCTokenSource extends Source<void> {
@@ -17,7 +17,10 @@ export class GCTokenSource extends Source<void> {
     super();
     this.ref = new WeakRef(token);
   }
-  consume(handler: Consumer.Handler<void>, options?: Consumer.Options<void> | undefined): Consumer<void> {
+  consume(
+    handler: Consumer.Handler<void>,
+    options?: Consumer.Options<void> | undefined,
+  ): Consumer<void> {
     const { init, ...rest } = options ?? {};
     return new Consumer(handler, {
       ...rest,
@@ -55,9 +58,9 @@ export class GCTokenSource extends Source<void> {
  *
  * @example
  * let obj: object | null = {};
- * fromGCToken(obj).pipe(listen(() => console.log('collected')));
+ * gcTokenSource(obj).pipe(listen(() => console.log('collected')));
  * obj = null;
  */
-export function fromGCToken(token: object): GCTokenSource {
+export function gcTokenSource(token: object): GCTokenSource {
   return new GCTokenSource(token);
 }

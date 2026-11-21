@@ -7,9 +7,12 @@ import { Source } from "../core/source";
  * Emits a single value after `ms` milliseconds via `setTimeout`, then completes.
  *
  * @example
- * fromTimeout(1000, 'done').pipe(listen(console.log));
+ * timeoutSource(1000, 'done').pipe(listen(console.log));
  */
-export class TimeoutSource<MS extends number, VALUE = void> extends Source<VALUE> {
+export class TimeoutSource<
+  MS extends number,
+  VALUE = void,
+> extends Source<VALUE> {
   constructor(
     private ms: MS,
     private value?: VALUE,
@@ -17,7 +20,10 @@ export class TimeoutSource<MS extends number, VALUE = void> extends Source<VALUE
     super();
   }
 
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE> {
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE> {
     const { init, ...rest } = options ?? {};
     const { ms, value } = this;
 
@@ -49,8 +55,11 @@ export class TimeoutSource<MS extends number, VALUE = void> extends Source<VALUE
  * @param value Optional value to emit (defaults to `undefined`).
  *
  * @example
- * fromTimeout(1000, 'done').pipe(listen(console.log));
+ * timeoutSource(1000, 'done').pipe(listen(console.log));
  */
-export function fromTimeout<MS extends number, VALUE = void>(ms: MS, value?: VALUE): TimeoutSource<MS, VALUE> {
+export function timeoutSource<MS extends number, VALUE = void>(
+  ms: MS,
+  value?: VALUE,
+): TimeoutSource<MS, VALUE> {
   return new TimeoutSource(ms, value);
 }

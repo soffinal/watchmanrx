@@ -8,7 +8,7 @@ import { ValueOfConsumable } from "../core/types";
  * The same context reference is shared across all values in the stream.
  *
  * @example
- * of(1,2,3).pipe(context({ count: 0 })).pipe(tap(v => v.context.count++)).pipe(listen());
+ * valuesSource(1,2,3).pipe(context({ count: 0 })).pipe(tap(v => v.context.count++)).pipe(listen());
  */
 export class Context<
   INPUT extends Consumable.AnyConsumable,
@@ -27,7 +27,10 @@ export class Context<
     options?: Consumer.Options<Context.Value<VALUE, CTX>> | undefined,
   ): Consumer<Context.Value<VALUE, CTX>> {
     const { context } = this;
-    return this.$input.consume((c, value) => handler(c, { value, context }), options);
+    return this.$input.consume(
+      (c, value) => handler(c, { value, context }),
+      options,
+    );
   }
 }
 
@@ -42,8 +45,10 @@ export namespace Context {
  * @param context The shared context object attached to every value.
  *
  * @example
- * of(1,2,3).pipe(context({ count: 0 })).pipe(tap(v => v.context.count++)).pipe(listen());
+ * valuesSource(1,2,3).pipe(context({ count: 0 })).pipe(tap(v => v.context.count++)).pipe(listen());
  */
-export function context<INPUT extends Consumable.AnyConsumable, CTX>(context: CTX) {
+export function context<INPUT extends Consumable.AnyConsumable, CTX>(
+  context: CTX,
+) {
   return ($input: INPUT) => new Context($input, context);
 }

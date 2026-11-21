@@ -1,12 +1,12 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { skipWhile } from "./skip-while";
 import { listen } from "./listen";
 
 describe("skipWhile", () => {
   it("skips values while predicate is true", () => {
     const results: number[] = [];
-    of(1, 2, 3, 4, 5)
+    valuesSource(1, 2, 3, 4, 5)
       .pipe(skipWhile((v) => v < 3))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([3, 4, 5]);
@@ -14,7 +14,7 @@ describe("skipWhile", () => {
 
   it("passes all values if predicate is immediately false", () => {
     const results: number[] = [];
-    of(5, 1, 2)
+    valuesSource(5, 1, 2)
       .pipe(skipWhile((v) => v < 3))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([5, 1, 2]);
@@ -22,7 +22,7 @@ describe("skipWhile", () => {
 
   it("skips all if predicate always true", () => {
     const results: number[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(skipWhile(() => true))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([]);
@@ -30,7 +30,7 @@ describe("skipWhile", () => {
 
   it("stops checking predicate after first false", () => {
     let checks = 0;
-    of(1, 2, 3, 4)
+    valuesSource(1, 2, 3, 4)
       .pipe(
         skipWhile((v) => {
           checks++;

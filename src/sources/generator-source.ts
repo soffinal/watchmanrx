@@ -5,7 +5,7 @@ import { IteratorSource } from "./iterator-source";
  * A new generator is created per consumer.
  *
  * @example
- * fromGenerator(function* () { yield 1; yield 2; }).pipe(listen(console.log));
+ * generatorSource(function* () { yield 1; yield 2; }).pipe(listen(console.log));
  */
 export class GeneratorSource<VALUE> extends IteratorSource<VALUE> {
   constructor(generatorFn: () => Generator<VALUE>) {
@@ -19,8 +19,10 @@ export class GeneratorSource<VALUE> extends IteratorSource<VALUE> {
  * @param generatorFn Factory that returns a new `Generator` per consumer.
  *
  * @example
- * fromGenerator(function* () { yield 1; yield 2; }).pipe(listen(console.log));
+ * generatorSource(function* () { yield 1; yield 2; }).pipe(listen(console.log));
  */
-export function fromGenerator<VALUE>(generatorFn: () => Generator<VALUE>): GeneratorSource<VALUE> {
+export function generatorSource<VALUE>(
+  generatorFn: () => Generator<VALUE>,
+): GeneratorSource<VALUE> {
   return new GeneratorSource(generatorFn);
 }

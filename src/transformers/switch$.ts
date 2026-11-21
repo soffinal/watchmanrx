@@ -2,7 +2,7 @@ import { Consumable } from "../core/consumable";
 import { Consumer } from "../core/consumer";
 import { Source } from "../core/source";
 import { isConsumable, ValueOfConsumable } from "../core/types";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 /**
  * Consume the latest inner `Consumable`, cancelling the previous one when a new one arrives.
  * Non-consumable values are passed through directly.
@@ -11,8 +11,8 @@ import { of } from "../sources/of-source";
  * so the source will teminate before attaching a consumer to the last value(consumable)
  *
  * @example
- *  const inner1 = of(1, 2);
-    const inner2 = of("a", "b");
+ *  const inner1 = valuesSource(1, 2);
+    const inner2 = valuesSource("a", "b");
     const stream = new Stream<number|Consumable<number>|Consumable<string>>();
 
     stream.pipe(switch$()).pipe(listen((v) => results.push(v)));//1, 2, 3, "a", "b"
@@ -28,7 +28,10 @@ export class Switch$<
   constructor(private $input: INPUT) {
     super();
   }
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     const { init, next, terminate, ...rest } = options ?? {};
     const { $input } = this;
     let current$: Consumer<VALUE> | null = null;
@@ -88,8 +91,8 @@ export class Switch$<
  * so the source will teminate before attaching a consumer to the last value(consumable)
  *
  * @example
- *  const inner1 = of(1, 2);
-    const inner2 = of("a", "b");
+ *  const inner1 = valuesSource(1, 2);
+    const inner2 = valuesSource("a", "b");
     const stream = new Stream<number|Consumable<number>|Consumable<string>>();
 
     stream.pipe(switch$()).pipe(listen((v) => results.push(v)));//1, 2, 3, "a", "b"

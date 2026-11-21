@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { count } from "./count";
 import { last } from "./last";
 import { listen } from "./listen";
@@ -7,7 +7,7 @@ import { listen } from "./listen";
 describe("count", () => {
   it("emits running count after each value", () => {
     const results: number[] = [];
-    of("a", "b", "c")
+    valuesSource("a", "b", "c")
       .pipe(count())
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1, 2, 3]);
@@ -15,7 +15,7 @@ describe("count", () => {
 
   it("emits final count via last()", () => {
     let result: any;
-    of(1, 2, 3, 4, 5)
+    valuesSource(1, 2, 3, 4, 5)
       .pipe(count())
       .pipe(last())
       .pipe(listen((v) => (result = v)));
@@ -24,7 +24,7 @@ describe("count", () => {
 
   it("counts a single value", () => {
     const results: number[] = [];
-    of("x")
+    valuesSource("x")
       .pipe(count())
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1]);

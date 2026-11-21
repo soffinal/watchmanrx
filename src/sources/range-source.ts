@@ -7,7 +7,7 @@ import { Source } from "../core/source";
  * Emits integers from `start` (inclusive) to `end` (exclusive), then completes.
  *
  * @example
- * fromRange(1, 5).pipe(listen(console.log)); // 1, 2, 3, 4
+ * rangeSource(1, 5).pipe(listen(console.log)); // 1, 2, 3, 4
  */
 export class RangeSource extends Source<number> {
   constructor(
@@ -44,8 +44,8 @@ export class RangeSource extends Source<number> {
  * @param end Upper bound (exclusive).
  *
  * @example
- * fromRange(1, 5).pipe(listen(console.log)); // 1, 2, 3, 4
+ * rangeSource(1, 5).pipe(listen(console.log)); // 1, 2, 3, 4
  */
-export function fromRange(start: number, end: number): RangeSource {
+export function rangeSource(start: number, end: number): RangeSource {
   return new RangeSource(start, end);
 }

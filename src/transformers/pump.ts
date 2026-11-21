@@ -8,7 +8,7 @@ import { ValueOfConsumable } from "../core/types";
  * Eagerly drains the upstream and trigger the consumption chain for a dormant pipeline.
  *
  * @example
- *  of(1, 2, 3).pipe(map( v => v * 2)).pipe(tap(console.log)).pipe(pump());
+ *  valuesSource(1, 2, 3).pipe(map( v => v * 2)).pipe(tap(console.log)).pipe(pump());
  */
 export class Pump<
   INPUT extends Consumable.AnyConsumable,
@@ -25,7 +25,10 @@ export class Pump<
       })
       .next();
   }
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     return this.$stream.consume(handler, options);
   }
 }

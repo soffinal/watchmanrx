@@ -8,7 +8,7 @@ import { ValueOfConsumable, Error } from "../core/types";
  * On success passes values through; on thrown error emits `Error<thrown>`.
  *
  * @example
- * of(1,2,3).pipe(safe(map(v => { if(v===2) throw 'bad'; return v; }))).pipe(listen(console.log));
+ * valuesSource(1,2,3).pipe(safe(map(v => { if(v===2) throw 'bad'; return v; }))).pipe(listen(console.log));
  */
 export class Safe<
   INPUT extends Consumable.AnyConsumable,
@@ -58,10 +58,11 @@ export class Safe<
  * @param fn A function that takes the input and returns a transformed consumable.
  *
  * @example
- * of(1,2,3).pipe(safe(map(v => { if(v===2) throw 'bad'; return v; }))).pipe(listen(console.log));
+ * valuesSource(1,2,3).pipe(safe(map(v => { if(v===2) throw 'bad'; return v; }))).pipe(listen(console.log));
  */
-export function safe<INPUT extends Consumable.AnyConsumable, OUTPUT extends Consumable.AnyConsumable>(
-  fn: ($input: INPUT) => OUTPUT,
-) {
+export function safe<
+  INPUT extends Consumable.AnyConsumable,
+  OUTPUT extends Consumable.AnyConsumable,
+>(fn: ($input: INPUT) => OUTPUT) {
   return ($input: INPUT) => new Safe($input, fn);
 }

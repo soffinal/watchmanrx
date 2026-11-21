@@ -9,13 +9,16 @@ import { Scope, scope } from "./scope";
  * Like {@link Scope} but requires ALL notifiers to complete before terminating.
  *
  * @example
- * const s1 = fromTimeout(1000);
- * const s2 = fromTimeout(2000);
- * fromInterval(300).pipe(scopeStrict(s1, s2)).pipe(listen(console.log)); // runs until both fire
+ * const s1 = timeoutSource(1000);
+ * const s2 = timeoutSource(2000);
+ * intervalSource(300).pipe(scopeStrict(s1, s2)).pipe(listen(console.log)); // runs until both fire
  */
 export class ScopeStrict<
   INPUT extends Consumable.AnyConsumable,
-  OTHERS extends [other: Consumable.AnyConsumable, ...others: Consumable.AnyConsumable[]],
+  OTHERS extends [
+    other: Consumable.AnyConsumable,
+    ...others: Consumable.AnyConsumable[],
+  ],
   VALUE extends ValueOfConsumable<INPUT> = ValueOfConsumable<INPUT>,
 > extends Source<VALUE> {
   constructor(
@@ -24,7 +27,10 @@ export class ScopeStrict<
   ) {
     super();
   }
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     const { terminate, ...rest } = options ?? {};
     let count = this.others.length;
 
@@ -53,13 +59,16 @@ export class ScopeStrict<
  * @param others All notifiers must complete before the output terminates.
  *
  * @example
- * const s1 = fromTimeout(1000);
- * const s2 = fromTimeout(2000);
- * fromInterval(300).pipe(scopeStrict(s1, s2)).pipe(listen(console.log)); // runs until both fire
+ * const s1 = timeoutSource(1000);
+ * const s2 = timeoutSource(2000);
+ * intervalSource(300).pipe(scopeStrict(s1, s2)).pipe(listen(console.log)); // runs until both fire
  */
 export function scopeStrict<
   INPUT extends Consumable.AnyConsumable,
-  OTHERS extends [other: Consumable.AnyConsumable, ...others: Consumable.AnyConsumable[]],
+  OTHERS extends [
+    other: Consumable.AnyConsumable,
+    ...others: Consumable.AnyConsumable[],
+  ],
 >(...others: OTHERS) {
   return ($input: INPUT) => new ScopeStrict($input, others);
 }

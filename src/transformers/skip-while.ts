@@ -7,7 +7,7 @@ import { ValueOfConsumable } from "../core/types";
  * Skips values while the predicate returns `true`. Passes all values once it returns `false`.
  *
  * @example
- * of(1, 2, 3, 4).pipe(skipWhile(v => v < 3)).pipe(listen(console.log)); // 3, 4
+ * valuesSource(1, 2, 3, 4).pipe(skipWhile(v => v < 3)).pipe(listen(console.log)); // 3, 4
  */
 export class SkipWhile<
   INPUT extends Consumable.AnyConsumable,
@@ -19,7 +19,10 @@ export class SkipWhile<
   ) {
     super();
   }
-  consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE>): Consumer<VALUE> {
+  consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE>,
+  ): Consumer<VALUE> {
     return this.$input.consume((consumer, value) => {
       if (this.predicate(value)) {
         consumer.next();
@@ -36,7 +39,7 @@ export class SkipWhile<
  * @param predicate Skip condition.
  *
  * @example
- * of(1, 2, 3, 4).pipe(skipWhile(v => v < 3)).pipe(listen(console.log)); // 3, 4
+ * valuesSource(1, 2, 3, 4).pipe(skipWhile(v => v < 3)).pipe(listen(console.log)); // 3, 4
  */
 export function skipWhile<
   INPUT extends Consumable.AnyConsumable,

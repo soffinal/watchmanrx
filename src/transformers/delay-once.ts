@@ -8,7 +8,7 @@ import { ValueOfConsumable } from "../core/types";
  * All subsequent values pass through immediately without delay.
  *
  * @example
- * of(1, 2, 3).pipe(delayOnce(500)).pipe(listen(console.log)); // 1 delayed, 2 and 3 immediate
+ * valuesSource(1, 2, 3).pipe(delayOnce(500)).pipe(listen(console.log)); // 1 delayed, 2 and 3 immediate
  */
 export class DelayOnce<
   INPUT extends Consumable.AnyConsumable,
@@ -21,7 +21,10 @@ export class DelayOnce<
   ) {
     super();
   }
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     let ms = this.ms;
     return this.$input.consume((c, v) => {
       setTimeout(() => {
@@ -38,8 +41,11 @@ export class DelayOnce<
  * @param ms Milliseconds to delay the first value only.
  *
  * @example
- * of(1, 2, 3).pipe(delayOnce(500)).pipe(listen(console.log)); // 1 delayed, 2 and 3 immediate
+ * valuesSource(1, 2, 3).pipe(delayOnce(500)).pipe(listen(console.log)); // 1 delayed, 2 and 3 immediate
  */
-export function delayOnce<INPUT extends Consumable.AnyConsumable, MS extends number>(ms: MS) {
+export function delayOnce<
+  INPUT extends Consumable.AnyConsumable,
+  MS extends number,
+>(ms: MS) {
   return ($input: INPUT) => new DelayOnce($input, ms);
 }

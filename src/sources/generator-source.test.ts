@@ -1,11 +1,11 @@
 import { describe, it, expect } from "bun:test";
-import { fromGenerator } from "./generator-source";
+import { generatorSource } from "./generator-source";
 import { listen } from "../transformers/listen";
 
-describe("fromGenerator", () => {
+describe("generatorSource", () => {
   it("emits values yielded by the generator", () => {
     const results: number[] = [];
-    fromGenerator(function* () {
+    generatorSource(function* () {
       yield 1;
       yield 2;
       yield 3;
@@ -16,7 +16,7 @@ describe("fromGenerator", () => {
   it("creates a new generator per consumer", () => {
     const r1: number[] = [];
     const r2: number[] = [];
-    const source = fromGenerator(function* () {
+    const source = generatorSource(function* () {
       yield 1;
       yield 2;
     });
@@ -28,7 +28,7 @@ describe("fromGenerator", () => {
 
   it("completes when generator is done", () => {
     let status: string | undefined;
-    fromGenerator(function* () {
+    generatorSource(function* () {
       yield 1;
     })
       .consume((self, v) => self.next(), {
@@ -40,7 +40,9 @@ describe("fromGenerator", () => {
 
   it("emits nothing for empty generator", () => {
     const results: number[] = [];
-    fromGenerator(function* () {}).pipe(listen((v) => results.push(v)));
+    generatorSource<number>(function* () {}).pipe(
+      listen((v) => results.push(v)),
+    );
     expect(results).toEqual([]);
   });
 });

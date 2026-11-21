@@ -8,8 +8,8 @@ import { ValueOfConsumable } from "../core/types";
  * and `false` when the first predicate check is falsy.
  *
  * @example
- * of(1, 2, 3).pipe(every(v => v > 0)).pipe(last()).pipe(listen(console.log)); // true
- * of(1, -1, 3).pipe(every(v => v > 0)).pipe(last()).pipe(listen(console.log)); // false
+ * valuesSource(1, 2, 3).pipe(every(v => v > 0)).pipe(last()).pipe(listen(console.log)); // true
+ * valuesSource(1, -1, 3).pipe(every(v => v > 0)).pipe(last()).pipe(listen(console.log)); // false
  */
 export class Every<
   INPUT extends Consumable.AnyConsumable,
@@ -55,8 +55,8 @@ export class Every<
  * @param predicate Condition each value must satisfy.
  *
  * @example
- * of(1, 2, 3).pipe(every(v => v > 0)).pipe(last()).pipe(listen(console.log)); // true
- * of(1, -1, 3).pipe(every(v => v > 0)).pipe(last()).pipe(listen(console.log)); // false
+ * valuesSource(1, 2, 3).pipe(every(v => v > 0)).pipe(last()).pipe(listen(console.log)); // true
+ * valuesSource(1, -1, 3).pipe(every(v => v > 0)).pipe(last()).pipe(listen(console.log)); // false
  */
 export function every<
   INPUT extends Consumable.AnyConsumable,

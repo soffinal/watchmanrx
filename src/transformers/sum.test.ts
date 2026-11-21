@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { sum } from "./sum";
 import { last } from "./last";
 import { listen } from "./listen";
@@ -7,7 +7,7 @@ import { listen } from "./listen";
 describe("sum", () => {
   it("emits running sum after each value", () => {
     const results: number[] = [];
-    of(1, 2, 3, 4)
+    valuesSource(1, 2, 3, 4)
       .pipe(sum())
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1, 3, 6, 10]);
@@ -15,7 +15,7 @@ describe("sum", () => {
 
   it("emits final sum via last()", () => {
     const results: any[] = [];
-    of(1, 2, 3, 4, 5)
+    valuesSource(1, 2, 3, 4, 5)
       .pipe(sum())
       .pipe(last())
       .pipe(listen((v) => results.push(v)));
@@ -25,7 +25,7 @@ describe("sum", () => {
 
   it("handles negative numbers", () => {
     const results: number[] = [];
-    of(10, -3, -2)
+    valuesSource(10, -3, -2)
       .pipe(sum())
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([10, 7, 5]);
@@ -33,7 +33,7 @@ describe("sum", () => {
 
   it("handles single value", () => {
     const results: number[] = [];
-    of(42)
+    valuesSource(42)
       .pipe(sum())
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([42]);

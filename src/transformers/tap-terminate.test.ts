@@ -1,5 +1,5 @@
 import { describe, it, expect, mock } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { tapTerminate } from "./tap-terminate";
 import { listen } from "./listen";
 import { Stream } from "../core/stream";
@@ -7,7 +7,7 @@ import { Stream } from "../core/stream";
 describe("tapTerminate", () => {
   it("calls callback with complete reason on stream completion", () => {
     const reasons: string[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(tapTerminate((r) => reasons.push(r)))
       .pipe(listen());
     expect(reasons).toEqual(["complete"]);
@@ -23,7 +23,7 @@ describe("tapTerminate", () => {
 
   it("passes values through unchanged", () => {
     const results: number[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(tapTerminate(() => {}))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1, 2, 3]);
@@ -31,7 +31,7 @@ describe("tapTerminate", () => {
 
   it("callback is called exactly once", () => {
     const cb = mock(() => {});
-    of(1, 2, 3).pipe(tapTerminate(cb)).pipe(listen());
+    valuesSource(1, 2, 3).pipe(tapTerminate(cb)).pipe(listen());
     expect(cb).toHaveBeenCalledTimes(1);
   });
 });

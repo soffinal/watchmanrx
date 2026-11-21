@@ -7,12 +7,12 @@ import { ValueOfConsumable } from "../core/types";
 /**
  * Buffers the last `n` values.
  * When a consumer created, it receives the buffered values then live values.
- * `IMPORTANT`: using latest with a none shared source like "fromIterable" or "fromInterval" and many others require `share`
+ * `IMPORTANT`: using latest with a none shared source like "iterableSource" or "intervalSource" and many others require `share`
  * transformer before it , otherwise by consuming it we get the latest values but
  * start the source from the beginning.
  *
  * @example
- * const buffered = fromInterval(300).pipe(share()).pipe(latest(2));
+ * const buffered = intervalSource(300).pipe(share()).pipe(latest(2));
  * setTimeout(() => buffered.pipe(listen(console.log)), 2000);
  */
 export class Latest<
@@ -41,7 +41,10 @@ export class Latest<
       )
       .next();
   }
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     const { next, terminate, ...rest } = options ?? {};
 
     const output$ = new Consumer(handler, {
@@ -68,14 +71,14 @@ export class Latest<
 /**
  * Buffers the last `n` values.
  * When a consumer created, it receives the buffered values then live values.
- * `IMPORTANT`: using latest with a replayable source like "fromIterable" or "fromInterval" and similare require `share`
+ * `IMPORTANT`: using latest with a replayable source like "iterableSource" or "intervalSource" and similare require `share`
  * transformer before it , otherwise by consuming it you get the latest values but
  * replay the source from the beginning.
  *
  * @param n Number of most-recent values to buffer.
  *
  * @example
- * const buffered = fromInterval(300).pipe(share()).pipe(latest(2));
+ * const buffered = intervalSource(300).pipe(share()).pipe(latest(2));
  * setTimeout(() => buffered.pipe(listen(console.log)), 2000);
  */
 export function latest<INPUT extends Consumable.AnyConsumable>(n: number) {

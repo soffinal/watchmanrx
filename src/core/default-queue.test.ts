@@ -1,4 +1,5 @@
-import { describe, it, expect, mock } from "bun:test";
+import {} from "bun";
+import { describe, it, expect } from "bun:test";
 import { DefaultQueue } from "./default-queue";
 import { EMPTY } from "./consts";
 

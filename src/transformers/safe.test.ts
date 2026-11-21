@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { safe } from "./safe";
 import { map } from "./map";
 import { filter } from "./filter";
@@ -9,7 +9,7 @@ import { Error } from "../core/types";
 describe("safe", () => {
   it("passes values through when no error is thrown", () => {
     const results: any[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(safe(map((v) => v * 2)))
       .pipe(listen((v) => results.push(v)));
     expect(results).toEqual([2, 4, 6]);
@@ -17,7 +17,7 @@ describe("safe", () => {
 
   it("emits Error when handler throws", () => {
     const results: any[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(
         safe(
           map((v) => {
@@ -34,7 +34,7 @@ describe("safe", () => {
   });
   it("emits Error when error occur  a on deeper pipeline", () => {
     const results: any[] = [];
-    of(1, 2, 3)
+    valuesSource(1, 2, 3)
       .pipe(
         safe(($input) =>
           $input
@@ -57,7 +57,7 @@ describe("safe", () => {
 
   it("do not crash when error thrown at the first element ", () => {
     const results: any[] = [];
-    of(1)
+    valuesSource(1)
       .pipe(
         safe(
           map((v) => {

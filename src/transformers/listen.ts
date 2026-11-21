@@ -10,7 +10,7 @@ import { ValueOfConsumable } from "../core/types";
  * @param callback just a callback to execute.
  *
  * @example
- * of(1, 2, 3).pipe(listen(console.log));
+ * valuesSource(1, 2, 3).pipe(listen(console.log));
  */
 export function listen<
   INPUT extends Consumable.AnyConsumable,

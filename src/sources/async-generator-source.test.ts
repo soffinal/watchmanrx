@@ -1,12 +1,12 @@
 import { describe, it, expect } from "bun:test";
-import { fromAsyncGenerator } from "./async-generator-source";
+import { asyncGeneratorSource } from "./async-generator-source";
 
-describe("fromAsyncGenerator", () => {
+describe("asyncGeneratorSource", () => {
   it("emits values yielded by the async generator", async () => {
     const results: number[] = [];
 
     await new Promise<void>((done) => {
-      fromAsyncGenerator(async function* () {
+      asyncGeneratorSource(async function* () {
         yield 1;
         yield 2;
         yield 3;
@@ -28,7 +28,7 @@ describe("fromAsyncGenerator", () => {
     const r1: number[] = [];
     const r2: number[] = [];
 
-    const source = fromAsyncGenerator(async function* () {
+    const source = asyncGeneratorSource(async function* () {
       yield 10;
       yield 20;
     });
@@ -66,7 +66,7 @@ describe("fromAsyncGenerator", () => {
     let status: string | undefined;
 
     await new Promise<void>((done) => {
-      fromAsyncGenerator(async function* () {
+      asyncGeneratorSource(async function* () {
         yield 1;
       })
         .consume((self, v) => self.next(), {

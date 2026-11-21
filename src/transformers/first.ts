@@ -10,7 +10,7 @@ import { Empty, ValueOfConsumable } from "../core/types";
  * Or emit EMPTY if the source is empty or all {@link predicate} calls return `false`.
  *
  * @example
- * of(1, 2, 3).pipe(first()).pipe(listen(console.log)); // 1
+ * valuesSource(1, 2, 3).pipe(first()).pipe(listen(console.log)); // 1
  */
 export class First<
   INPUT extends Consumable.AnyConsumable,
@@ -65,7 +65,7 @@ export class First<
  * @param predicate
  *
  * @example
- * of(1, 2, 3).pipe(first()).pipe(listen(console.log)); // 1
+ * valuesSource(1, 2, 3).pipe(first()).pipe(listen(console.log)); // 1
  */
 export function first<
   INPUT extends Consumable.AnyConsumable,

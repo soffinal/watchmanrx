@@ -8,7 +8,7 @@ import { ValueOfConsumable } from "../core/types";
  * Values before `start` are skipped; the stream terminates after `offset` values.
  *
  * @example
- * of('a','b','c','d','e').pipe(range(1, 3)).pipe(listen(console.log)); // b, c, d
+ * valuesSource('a','b','c','d','e').pipe(range(1, 3)).pipe(listen(console.log)); // b, c, d
  */
 export class Range<
   INPUT extends Consumable.AnyConsumable,
@@ -21,7 +21,10 @@ export class Range<
   ) {
     super();
   }
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     let index = 0;
 
     return this.$input.consume((c, v) => {
@@ -43,8 +46,11 @@ export class Range<
  * @param offset Number of values to pass.
  *
  * @example
- * of('a','b','c','d','e').pipe(range(1, 3)).pipe(listen(console.log)); // b, c, d
+ * valuesSource('a','b','c','d','e').pipe(range(1, 3)).pipe(listen(console.log)); // b, c, d
  */
-export function range<INPUT extends Consumable.AnyConsumable>(start: number, offset: number) {
+export function range<INPUT extends Consumable.AnyConsumable>(
+  start: number,
+  offset: number,
+) {
   return ($input: INPUT) => new Range($input, start, offset);
 }

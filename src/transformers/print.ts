@@ -7,7 +7,7 @@ import { ValueOfConsumable } from "../core/types";
  * Logs each value to the console with an optional label, then passes it through unchanged.
  *
  * @example
- * of(1, 2, 3).pipe(print('val:')).pipe(listen());
+ * valuesSource(1, 2, 3).pipe(print('val:')).pipe(listen());
  */
 export class Print<
   INPUT extends Consumable.AnyConsumable,
@@ -20,9 +20,15 @@ export class Print<
     super();
   }
 
-  override consume(handler: Consumer.Handler<VALUE>, options?: Consumer.Options<VALUE> | undefined): Consumer<VALUE> {
+  override consume(
+    handler: Consumer.Handler<VALUE>,
+    options?: Consumer.Options<VALUE> | undefined,
+  ): Consumer<VALUE> {
     return this.$input.consume(
-      (c, v) => (this.label ? console.log(this.label, v) : console.log(v), handler(c, v)),
+      (c, v) => (
+        this.label ? console.log(this.label, v) : console.log(v),
+        handler(c, v)
+      ),
       options,
     );
   }

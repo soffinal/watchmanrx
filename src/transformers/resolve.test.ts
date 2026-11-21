@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
-import { fromGenerator } from "../sources/generator-source";
+import { valuesSource } from "../sources/values-source";
+import { generatorSource } from "../sources/generator-source";
 import { resolve } from "./resolve";
 import { listen } from "./listen";
 import { Error } from "../core/types";
@@ -9,7 +9,7 @@ describe("resolve", () => {
   it("resolves promises and emits values", async () => {
     const results: any[] = [];
     await new Promise<void>((done) => {
-      of(Promise.resolve(1), Promise.resolve(2), Promise.resolve(3))
+      valuesSource(Promise.resolve(1), Promise.resolve(2), Promise.resolve(3))
         .pipe(resolve(3))
         .pipe(
           listen((v) => {
@@ -25,7 +25,7 @@ describe("resolve", () => {
   it("emits Error for rejected promises", async () => {
     const results: any[] = [];
     await new Promise<void>((done) => {
-      of(Promise.reject("fail"), Promise.resolve(2))
+      valuesSource(Promise.reject("fail"), Promise.resolve(2))
         .pipe(resolve(2))
         .pipe(
           listen((v) => {
@@ -55,7 +55,7 @@ describe("resolve", () => {
     };
 
     await new Promise<void>((done) => {
-      fromGenerator(function* () {
+      generatorSource(function* () {
         yield makePromise(1);
         yield makePromise(2);
         yield makePromise(3);

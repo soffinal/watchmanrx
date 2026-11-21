@@ -9,7 +9,7 @@ import { ValueOfConsumable, SizedArray } from "../core/types";
  * Incomplete buffers are emitted on stream completion.
  *
  * @example
- * of(1,2,3,4,5).pipe(buffer(2)).pipe(listen(console.log)); // [1,2], [3,4], [5]
+ * valuesSource(1,2,3,4,5).pipe(buffer(2)).pipe(listen(console.log)); // [1,2], [3,4], [5]
  */
 export class Buffer<
   INPUT extends Consumable.AnyConsumable,
@@ -74,11 +74,11 @@ export class Buffer<
  * @param startBufferEvery How often to start a new buffer (default = `size`).
  *
  * @example
- * of(1,2,3,4,5).pipe(buffer(2)).pipe(listen(console.log)); // [1,2], [3,4], [5]
+ * valuesSource(1,2,3,4,5).pipe(buffer(2)).pipe(listen(console.log)); // [1,2], [3,4], [5]
  */
-export function buffer<INPUT extends Consumable.AnyConsumable, SIZE extends number>(
-  size: SIZE,
-  startBufferEvery = size,
-) {
+export function buffer<
+  INPUT extends Consumable.AnyConsumable,
+  SIZE extends number,
+>(size: SIZE, startBufferEvery = size) {
   return ($input: INPUT) => new Buffer($input, size, startBufferEvery);
 }

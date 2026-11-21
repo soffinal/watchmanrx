@@ -1,834 +1,950 @@
 # @watchmanlab/stream
 
-> Multi-paradigm reactive primitives built on a **pull-on-push** protocol.
+**A Declarative TypeScript library that gives you lazy, reusable, composable, traceable, scalable, and controllable code execution.**
 
-A TypeScript reactive library that solves backpressure, async workflows, and event composition without making you think about any of that until you need to.
-
-Zero runtime dependencies. Full TypeScript inference. Works in the browser, Node, Bun, and Deno.
-
----
+One unified model across **sync & async**, **hot & cold**, **push & pull**, and **lazy & eager** execution—built to work standalone or mix seamlessly with any paradigm and library you already use.
 
 ## Install
 
 ```sh
-# npm
 npm install @watchmanlab/stream
-
-# JSR
-jsr add @watchmanlab/stream
 ```
 
----
+## Contents
 
-## Start Here
+- [Quick start](#quick-start)
+- [Core concepts](#core-concepts)
+  - [Consumable](#consumable)
+  - [Consumer](#consumer)
+  - [Source](#source)
+  - [Stream](#stream)
+- [Sources](#sources)
+- [Streams](#streams)
+- [Transformers](#transformers)
+  - [Filtering](#filtering)
+  - [Transformation](#transformation)
+  - [Aggregation](#aggregation)
+  - [Flow Control](#flow-control)
+  - [Side Effects & Termination](#side-effects--termination)
+- [Protocol](#protocol)
 
-You have a button. You want to do something when it's clicked.
+### Quick start
 
-```typescript
-import { fromEventTarget } from "@watchmanlab/stream/sources";
-import { listen } from "@watchmanlab/stream/transformers";
-
-fromEventTarget(button, "click").pipe(listen((e) => console.log("clicked!")));
-```
-
-Now you want to debounce it — only react after the user stops clicking for 300ms.
-
-```typescript
-import { fromEventTarget } from "@watchmanlab/stream/sources";
-import { debounce, listen } from "@watchmanlab/stream/transformers";
-
-fromEventTarget(button, "click")
-  .pipe(debounce(300))
-  .pipe(listen((e) => console.log("settled")));
-```
-
-Now you want to fetch something on each click, but only keep the latest request — if a new click comes in before the previous fetch finishes, cancel it.
-
-```typescript
-import { fromEventTarget } from "@watchmanlab/stream/sources";
+```ts
 import {
-  debounce,
+  filter,
   map,
-  switch$,
-  resolve,
+  iterableSource,
   listen,
-} from "@watchmanlab/stream/transformers";
+  take,
+  delay,
+} from "@watchmanlab/stream";
 
-fromEventTarget(searchInput, "input")
-  .pipe(debounce(300))
-  .pipe(map((e) => fetch(`/api/search?q=${e.target.value}`)))
-  .pipe(resolve())
-  .pipe(listen((results) => render(results)));
+// `source` is lazy and replayable
+// so you can consume it multiple times
+const source = iterableSource([1, 2, 3, 4, 5, 6])
+  .pipe(filter((value) => value > 2))
+  .pipe(map((value, index) => `${index}:${value}`))
+  .pipe(take(3))
+  .pipe(delay(100));
+
+//consume it using:
+for await (const value of source) {
+  console.log(value);
+}
+
+//OR
+source
+  .consume((consumer, value) => {
+    console.log(value);
+    consumer.next();
+  })
+  .next();
+
+//OR
+source.pipe(listen((value) => console.log(value)));
 ```
 
-That's the pattern. You start with a source, chain transformers with `.pipe()`, and end with `listen`. Each step is independent and composable.
+## Core concepts
 
----
+At first glance this looks like any other reactive/streaming library,but it's fundamentally different and cover more than that.
 
-## How It Works (The Short Version)
+There is a `Consumable` and it need to be consumed by a one or more `Consumer`(s),this concept is well known but here we go deeper and explore many concepts about the relation between them.
 
-Most reactive libraries have a hidden problem: the producer controls the rate. If your consumer is slow — doing async work, rendering, writing to a database — values pile up and memory grows.
+Because this library is self referenced ,each primitive require the others primitives and even it self, we can't have a linear and progressive guidline, but when you use it all of that will make sense.
 
-This library solves that with a **credit system**. A consumer only processes a value when it has credit. You grant credit by calling `next()` inside your handler. If no credit is available, values queue up and drain at the consumer's own pace.
+to put you in the context here is the five core primitives : `Consumable`,`Consumer`,`Source`, `Stream` and `Transformer`. -`Source` is a `Consumable` and have many implementations. -`Stream` and `Transformer` are `Source`.
 
-```typescript
+Now we will dive deep into each one.
+
+### Consumable
+
+The base contract of the library. Any object with a `consume` method is a `Consumable` and `consume` must return a `Consumer`.
+
+### Consumer
+
+The fundamental unit of consumption. A `Consumer` receives values and controls its own processing rate through a **credit system**: a value is only processed when the consumer has credit, granted by calling its `.next()` method. Values pushed without available credit are buffered in an internal FIFO queue and drained in order as credit is granted.
+
+Generally you will not create a `Consumer` manually since you get it from a `Consumable`.
+
+```ts
 import { Consumer } from "@watchmanlab/stream";
 
-const consumer$ = new Consumer<number>((self$, value) => {
+const consumer = new Consumer<number>((self, value) => {
   console.log(value);
-  self$.next(); // "I'm ready for the next one"
+  self.next(); // grant credit for the next value
 });
 
-consumer$.next(); // grant initial credit
-consumer$.push(1); // fires immediately
-consumer$.push(2); // fires immediately (self$.next() re-granted credit)
+consumer.next(); // grant initial credit
+consumer.push(1); // processed immediately
+consumer.push(2); // queued, processed after handler calls next()
+
+// drains the remaining queue at the consumer's own pace
+consumer.terminate("complete");
+
+//or immediately stops and clears the queue.
+consumer.terminate("abort");
 ```
 
-You rarely use `Consumer` directly — transformers and `listen` handle it for you. But this is what's happening under the hood in every pipeline.
+Beyond receiving and processing values, a `Consumer` is fully introspectable. Every internal moment is observable as a first-class `Source` you can pipe and compose:
 
-### Reentrancy
+| Event              | Emits                                              |
+| ------------------ | -------------------------------------------------- |
+| `$push`            | Every value delivered to the consumer              |
+| `$beforeConsuming` | Every value just before the handler runs           |
+| `$afterConsuming`  | Every value just after the handler calls `.next()` |
+| `$next`            | When the queue is exhausted and credit is granted  |
+| `$drain`           | When the consumer enters drain state               |
+| `$terminate`       | The termination reason                             |
 
-Because the protocol is synchronous and callback-based, reentrancy is a real concern — what if `next()` is called from inside the handler before it returns? The credit counter handles it without any extra machinery. The drain loop only runs when `credit === 1`. If `next()` is called re-entrantly, credit increments to 2 and the loop guard exits immediately — the outer loop picks up the extra credit on its next iteration. No recursion, no locks.
+A property `inProcessValue` holds the value currently being handled, accessible at any point during handler execution.
 
-### Pipelines Are Transducers
+**Resource management** via `using` / `await using`:
 
-Transformers like `map` and `filter` don't create a second consumer and push into it. They consume from the input and return _that same consumer_ with the handler wrapped:
-
-```typescript
-// map's entire consume implementation
-consume(handler, options) {
-  return this.$input.consume(
-    (c$, v) => handler(c$, this.mapper(v)),
-    options
-  );
+```ts
+{
+  using consumer = new Consumer<number>(handler, options); // terminates with "abort" on scope exit
+}
+{
+  await using consumer = new Consumer<number>(handler, options); // terminates with "complete" on scope exit
 }
 ```
 
-Chain several transformers and the whole pipeline collapses into nested function calls — one consumer, no intermediate allocations, fully inlineable by the JIT. This is the transducer pattern, for free, on every linear pipeline. It only breaks when you introduce `share()`, which needs a real multicast boundary.
+This makes a `Consumer` a self-contained execution unit you can monitor, trace, and build flow control around — without touching the pipeline itself.
 
-This is also why many transformers that _could_ be expressed in terms of others are written from scratch. `range` could be `skip(start).pipe(take(offset))` — clean and obvious. But that creates two consumers, two handler wrappers, two objects. Written directly against the input, it's one consumer, one handler, zero intermediate allocations. The composability is a user-facing property. The implementation doesn't have to pay for it.
+### Source
+
+Abstract base class for all sources, streams and transformers. Provides `.pipe()` for chaining, `.collect()` for terminal collection, and both `for await...of` and `for...of` iteration.
+
+A `Source` must have an implementation so we provide a good set of them and they are suffixed by `Source`.
+
+```ts
+import { iterableSource, map, filter } from "@watchmanlab/stream";
+
+const source = iterableSource([1, 2, 3, 4, 5]);
+
+// pipe transformers
+const result = source.pipe(filter((v) => v > 2)).pipe(map((v) => v * 10));
+
+// async iteration
+for await (const value of result) {
+  console.log(value); // 30, 40, 50
+}
+
+//if the source is synchronous then you can consume it synchronously
+for (const value of result) {
+  console.log(value); // 30, 40, 50
+}
+
+// collect n values
+const values = await result.collect(3); // [30, 40, 50]
+
+// sync collect
+const sync = result.collect(3, { sync: true }); // [30, 40, 50]
+```
+
+`Source.from(consumable)` wraps any `Consumable` in a `Source` proxy, giving it `.pipe()`,`collect()` and iteration without changing its behaviour. It is also used to expose a read-only view of a `Stream`.
+
+### Stream
+
+A multicast push source that broadcasts values to all its consumers. The primary building block for hot event sources.
+
+```ts
+import { Stream, listen } from "@watchmanlab/stream";
+
+const stream = new Stream<number>();
+
+stream.pipe(listen((v) => console.log("A:", v)));
+stream.pipe(listen((v) => console.log("B:", v)));
+
+stream.pushMany(1, 2, 3);
+stream.terminate("complete");
+```
+
+**Lifecycle events** are exposed as first-class `Source`s:
+
+| Event                | Emits                                         |
+| -------------------- | --------------------------------------------- |
+| `$push`              | Every pushed value                            |
+| `$next`              | The fastest consumer that called `next()`     |
+| `$consumerNext`      | Any consumer that called `next()`             |
+| `$consumerJoin`      | Every new consumer                            |
+| `$consumerLeft`      | Every consumer that left                      |
+| `$firstConsumerJoin` | When the first consumer joins an empty stream |
+| `$lastConsumerLeft`  | When the last consumer leaves                 |
+| `$drain`             | When the stream enters drain state            |
+| `$terminate`         | The termination reason                        |
+
+**Resource management** via `using` / `await using`:
+
+```ts
+{
+  using stream = new Stream<number>(); // terminates with "abort" on scope exit
+}
+{
+  await using stream = new Stream<number>(); // terminates with "complete" on scope exit
+}
+```
+
+`Stream.from(consumable)` bridges any unicast `Consumable` into a multicast `Stream`. Upstream pulls are driven by the fastest consumer; slower consumers buffer independently.
+
+```ts
+const shared = Stream.from(iterableSource([1, 2, 3]));
+shared.pipe(listen((v) => console.log("A:", v)));
+shared.pipe(listen((v) => console.log("B:", v)));
+```
+
+## Sources
+
+Like we said before `Source` is an abstract class so we need to implement it.
+Some of the sources are replayable — you can consume them multiple times and each consumer gets its own independent execution.
 
 ---
 
-## The Three Primitives
+### `valuesSource(...values)`
 
-Everything in this library is built from three concepts:
+Emits a fixed list of inline values then completes. Shorthand for `iterableSource(values)`.
 
-**`Stream` / `Source` / `Consumable`** — one primitive, three layers. `Consumable` is the interface: anything with a `consume` method participates in the pipeline. `Source` is the abstract base that adds `pipe` and `for await...of`. `Stream` is the concrete multicast implementation. From the user's perspective they are interchangeable — if it has `consume`, it's in the pipeline.
-
-> **Naming convention:** any variable holding a `Consumable` is prefixed with `$`. Any variable holding a `Consumer` (the object returned by `.consume()`) is suffixed with `$`, the suffix is applied on higher order transformers like `switch$`,`flat$` . So `$search` is something you can consume from, and `search$` is the consumer you got back from consuming it. This convention is used consistently throughout the library's own source code — every transformer, every source, every internal variable follows it. When you read the source of any transformer, you instantly know which variables are producers and which are consumers without reading a single comment. It's worth adopting in your own code for the same reason.
-
-**`pipe`** — the composition mechanism. `source.pipe(fn)` is literally `fn(source)`. Transformers are not special — they are plain `Source`s whose constructor accepts another `Consumable` as input. `map`, `filter`, `debounce` are all just `Source` subclasses. `pipe` is the glue that passes one into the next.
-
-> **Transformers are classes.** The function you call in `.pipe()` is just a factory that returns an instance. Because they're classes with a fixed shape, the JIT can optimize them aggressively. And because they're classes, you can instantiate them directly — useful when you want to build a pipeline step by step, hold a reference to an intermediate stage, or add transformers conditionally:
->
-> ```typescript
-> // These are identical
-> $source.pipe(map((v) => v * 2));
-> new Map($source, (v) => v * 2);
->
-> // Step-by-step — useful for conditional pipelines
-> const $filtered = new Filter($source, isValid);
-> const $mapped = new Map($filtered, transform);
-> $mapped.pipe(listen(console.log));
-> ```
-
----
-
-## Real Use Cases
-
-### Search with debounce and cancellation
-
-```typescript
-fromEventTarget(searchInput, "input")
-  .pipe(map((e) => e.target.value))
-  .pipe(debounce(300))
-  .pipe(map((query) => fetch(`/api/search?q=${query}`)))
-  .pipe(resolve()) // resolves the promise, emits the result
-  .pipe(listen(renderResults));
+```ts
+valuesSource(1, 2, 3).pipe(listen(console.log)); // 1, 2, 3
 ```
 
-### Polling with a stop condition
+### `iterableSource(iterable)`
 
-```typescript
-import { fromInterval } from "@watchmanlab/stream/sources";
-import {
-  map,
-  resolve,
-  takeUntil,
-  listen,
-} from "@watchmanlab/stream/transformers";
-import { fromTimeout } from "@watchmanlab/stream/sources";
+Wraps any `Iterable` as a pull-based source. A new iterator is created per consumer , so each consumer gets a fresh traversal. Also accepts a factory function returning an `Iterable`.
 
-fromInterval(5000)
-  .pipe(map(() => fetch("/api/status")))
-  .pipe(resolve())
-  .pipe(takeUntil(fromTimeout(60_000))) // stop after 60 seconds
-  .pipe(listen((status) => updateUI(status)));
+```ts
+iterableSource([1, 2, 3]).pipe(listen(console.log));
+iterableSource(() => new Set([1, 2, 3])).pipe(listen(console.log)); // factory form
 ```
 
-### Sharing a source across multiple consumers
+### `asyncIterableSource(iterable)`
 
-```typescript
-import { fromInterval } from "@watchmanlab/stream/sources";
-import { share, listen, passive } from "@watchmanlab/stream/transformers";
+Wraps any `AsyncIterable` as a pull-based source. A new async iterator is created per consumer. Also accepts a factory function returning an `AsyncIterable`.
 
-const $ticker = fromInterval(1000).pipe(share());
-
-// This drives the interval
-$ticker.pipe(listen((v) => updateClock(v)));
-
-// This observes without driving — won't start the interval on its own
-$ticker.pipe(passive()).pipe(listen((v) => logTick(v)));
+```ts
+async function* gen() {
+  yield 1;
+  yield 2;
+}
+asyncIterableSource(gen()).pipe(listen(console.log));
 ```
 
-> **Why `passive()`?** By default every consumer drives the source. The first consumer to call `next()` triggers production, and the value is broadcast to all consumers — any that already have credit fire immediately, no buffering involved. If you add a logger or analytics consumer, you don't want it to trigger a network request or start a timer just because it subscribed. `passive()` opts that consumer out of driving entirely.
+### `generatorSource(fn)`
 
-### Fetching multiple URLs with concurrency control
+Wraps a generator function as a pull-based source. The function is called once per consumer, so each consumer gets its own independent generator instance.
 
-```typescript
-import { fromGenerator } from "@watchmanlab/stream/sources";
-import { resolve, listen } from "@watchmanlab/stream/transformers";
+```ts
+generatorSource(function* () {
+  yield 1;
+  yield 2;
+  yield 3;
+}).pipe(listen(console.log)); // 1, 2, 3
+```
 
-fromGenerator(function* () {
-  yield fetch("/api/users");
-  yield fetch("/api/posts");
-  yield fetch("/api/comments");
-})
-  .pipe(resolve(2)) // max 2 in-flight at once
+### `asyncGeneratorSource(fn)`
+
+Wraps an async generator function as a pull-based source. The function is called once per consumer, so each consumer gets its own independent async generator instance.
+
+```ts
+asyncGeneratorSource(async function* () {
+  yield await fetch("/a");
+  yield await fetch("/b");
+}).pipe(listen(console.log));
+```
+
+### `iteratorSource(iterator)`
+
+Wraps a synchronous `Iterator` directly. Each `next()` call pulls one value. Terminates with `"complete"` when the iterator is done. Also accepts a factory function returning an `Iterator`. Note: if a raw iterator (not a factory) is passed, it is shared across all consumers.
+
+```ts
+iteratorSource([1, 2, 3].values()).pipe(listen(console.log)); // 1, 2, 3
+iteratorSource(() => [1, 2, 3].values()).pipe(listen(console.log)); // factory form, replayable
+```
+
+### `asyncIteratorSource(iterator)`
+
+Wraps an `AsyncIterator` directly. Each `next()` call pulls one value asynchronously. Also accepts a factory function returning an `AsyncIterator`. If a raw iterator is passed, it is shared across all consumers.
+
+```ts
+asyncIteratorSource(() => someAsyncIterator()).pipe(listen(console.log));
+```
+
+### `functionSource(fn)`
+
+Calls `fn` once on the first `next()`, emits the result, then completes. Useful for wrapping a single lazy computation as a source.
+
+```ts
+functionSource(() => Math.random()).pipe(listen(console.log)); // one random number
+```
+
+### `rangeSource(start, end)`
+
+Emits integers from `start` (inclusive) to `end` (exclusive), then completes.
+
+```ts
+rangeSource(1, 5).pipe(listen(console.log)); // 1, 2, 3, 4
+```
+
+### `intervalSource(ms)`
+
+Emits an incrementing counter (starting at `0`) every `ms` milliseconds via `setInterval`. Never completes on its own — must be terminated externally (e.g. with `take`, `takeUntil`, or `scope`).
+
+```ts
+intervalSource(500).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
+```
+
+### `timeoutSource(ms, value?)`
+
+Emits a single value after `ms` milliseconds via `setTimeout`, then completes. The emitted value defaults to `undefined` if not provided.
+
+```ts
+timeoutSource(1000).pipe(listen(() => console.log("done")));
+timeoutSource(1000, "tick").pipe(listen(console.log)); // 'tick'
+```
+
+### `eventTargetSource(target, eventType)`
+
+Emits DOM events of the given type from an `EventTarget`. A new event listener is registered per consumer and removed on termination. Fully typed for known DOM event types.
+
+```ts
+eventTargetSource(window, "click").pipe(listen((e) => console.log(e.type)));
+eventTargetSource(window, "resize")
+  .pipe(debounce(200))
   .pipe(listen(console.log));
 ```
 
-> **Why `resolve(n)` instead of async map?** Promises are just values here. The core doesn't know what a promise is. `resolve` is a transformer that handles promise resolution with explicit concurrency control. You decide the concurrency — it's not hidden inside an operator.
+### `abortSignalSource(signal)`
 
-### Buffering late subscribers
+Emits once when the given `AbortSignal` is aborted, then completes. If the signal is already aborted at subscription time, emits immediately.
 
-```typescript
-const $prices = fromEventTarget(socket, "message")
-  .pipe(map((e) => JSON.parse(e.data)))
-  .pipe(share())
-  .pipe(latest(5)); // buffer last 5 values
-
-// A component that mounts later immediately gets the last 5 prices
-$prices.pipe(listen(updatePriceChart));
+```ts
+const controller = new AbortController();
+abortSignalSource(controller.signal).pipe(listen(() => console.log("aborted")));
+controller.abort();
 ```
 
-### Sliding windows and batching
+### `abortControllerSource(controller)`
 
-```typescript
-// Emit arrays of the last 3 values, starting a new window every value
-fromInterval(100).pipe(buffer(3, 1)).pipe(listen(console.log)); // [0,1,2], [1,2,3], [2,3,4], ...
+Convenience wrapper around `abortSignalSource` that accepts an `AbortController` directly instead of its signal.
 
-// Collect into non-overlapping chunks of 10
-fromInterval(100).pipe(batch(10)).pipe(listen(processBatch)); // [0..9], [10..19], ...
+```ts
+const controller = new AbortController();
+abortControllerSource(controller).pipe(listen(() => console.log("aborted")));
+controller.abort();
 ```
 
-### Cancelling the previous request with `switch$`
+### `gcTokenSource(token)`
 
-```typescript
-const $outer = new Stream<Consumable<Response>>();
+Emits once when the given object is garbage collected, using `FinalizationRegistry`. If the object is already collected at subscription time, emits immediately. Useful for tying stream lifetimes to object lifetimes.
 
-$outer
-  .pipe(switch$()) // cancels previous inner stream when a new one arrives
-  .pipe(listen(handleResponse));
-
-$outer.push(of(fetch("/api/search?q=a")));
-$outer.push(of(fetch("/api/search?q=ab"))); // previous fetch is cancelled
+```ts
+let obj: object | null = {};
+gcTokenSource(obj).pipe(listen(() => console.log("collected")));
+obj = null; // allow GC
 ```
 
-> **`switch$` gotcha:** it does not work with replayable sources like `of(of(1,2), of(3,4))`. Because `switch$` is eager on the outer stream but lazy on the inner one, a replayable outer source completes synchronously before `switch$` can attach a consumer to the last inner value. Always use `switch$` with hot sources — `Stream`, `fromEventTarget`, etc.
+### `mergeSource(...sources)`
 
-### Gate: open and close a stream
+Merges multiple sources into one, emitting values from all inputs as they arrive. Unlike the `merge` transformer, this is a standalone source that takes all inputs upfront. Terminates when the **last** input terminates.
 
-```typescript
-const $isOnline = fromEventTarget(window, "online")
-  .pipe(map(() => true))
-  .pipe(merge(fromEventTarget(window, "offline").pipe(map(() => false))));
-
-// Only emit sensor data while online
-fromInterval(100).pipe(gate(isOnline$)).pipe(listen(sendToServer));
+```ts
+const s1 = intervalSource(500).pipe(map(() => "A"));
+const s2 = intervalSource(700).pipe(map(() => "B"));
+mergeSource(s1, s2).pipe(listen(console.log)); // A, B, A, A, B, ...
 ```
 
-### Error handling
+### `combineSource(...sources)`
 
-```typescript
-import { safe, filter, listen } from "@watchmanlab/stream/transformers";
-import { Error } from "@watchmanlab/stream";
+Emits a tuple of the latest value from each input whenever any input emits. Uses `EMPTY` for inputs that have not yet emitted. Terminates when any input terminates. For `combineLatest` semantics, pipe `latest(1)` on each input before passing to `combineSource`.
 
-of(1, 2, 3)
+```ts
+const s1 = valuesSource(1, 2, 3).pipe(delay(100));
+const s2 = valuesSource("a", "b").pipe(delay(200));
+combineSource(s1, s2).pipe(listen(console.log));
+// [1, EMPTY], [2, EMPTY], [2, 'a'], [3, 'a'], [3, 'b']
+```
+
+### `zipSource(...sources)`
+
+Combines values from multiple sources pairwise into tuples. Emits a tuple only when all inputs have provided a new value. Terminates when any input terminates. Unmatched values remaining at termination are available on `.$rest`.
+
+```ts
+const s1 = valuesSource(1, 2, 3);
+const s2 = valuesSource("a", "b", "c");
+zipSource(s1, s2).pipe(listen(console.log)); // [1,'a'], [2,'b'], [3,'c']
+```
+
+## Streams
+
+| Stream      | Description                                                                   |
+| ----------- | ----------------------------------------------------------------------------- |
+| `Stream<T>` | Multicast push source. The base hot stream                                    |
+| `Signal<T>` | A `Stream` that terminates after the first push. For one-shot events          |
+| `State<T>`  | A `Stream` with a `.value` property. Setting `.value` pushes to all consumers |
+
+## Transformers
+
+Transformers are functions that accept a source and return a new source. They compose with `.pipe()`.
+
+---
+
+### Filtering
+
+#### `filter(predicate, complement?)`
+
+Passes only values that satisfy the predicate. Rejected values are forwarded to the lazy `.$complements` stream at zero cost if unused. The `.$complements` stream is passive relative to `filter` — consuming it never drives the upstream.
+
+```ts
+const f = valuesSource(1, 2, 3, 4).pipe(filter((v) => v % 2 === 0));
+f.$complements.pipe(listen(console.log)); // 1, 3
+f.pipe(listen(console.log)); // 2, 4
+```
+
+An optional inline `complement` callback can be passed as a second argument instead of subscribing to `.$complements`.
+
+#### `take(n)`
+
+Takes the first `n` values then terminates. Works with both cold and hot sources.
+
+```ts
+intervalSource(100).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
+```
+
+#### `takeWhile(predicate)`
+
+Takes values while the predicate returns `true`. Terminates on the first `false`.
+
+```ts
+valuesSource(1, 2, 3, 4)
+  .pipe(takeWhile((v) => v < 3))
+  .pipe(listen(console.log)); // 1, 2
+```
+
+#### `takeUntil($notifier)`
+
+Takes values until the notifier emits, then terminates. Useful for tying a stream's lifetime to an external event.
+
+```ts
+const stop = timeoutSource(1000);
+intervalSource(200).pipe(takeUntil(stop)).pipe(listen(console.log));
+```
+
+#### `skip(n)`
+
+Skips the first `n` values, then passes all subsequent values through.
+
+```ts
+valuesSource(1, 2, 3, 4).pipe(skip(2)).pipe(listen(console.log)); // 3, 4
+```
+
+#### `skipWhile(predicate)`
+
+Skips values while the predicate returns `true`. Once the predicate returns `false`, all subsequent values pass through without re-checking.
+
+```ts
+valuesSource(1, 2, 3, 4)
+  .pipe(skipWhile((v) => v < 3))
+  .pipe(listen(console.log)); // 3, 4
+```
+
+#### `skipUntil($notifier)`
+
+Skips all values until the notifier emits, then passes all subsequent values through.
+
+```ts
+const start = timeoutSource(600);
+stream.pipe(skipUntil(start)).pipe(listen(console.log));
+```
+
+#### `distinct(keySelector?, $flushes?)`
+
+Filters out duplicate values using a `Set`. Optionally accepts a `keySelector` to compare by a derived key. A `$flushes` notifier resets the seen-set when it emits.
+
+```ts
+valuesSource(1, 1, 2, 2, 3).pipe(distinct()).pipe(listen(console.log)); // 1, 2, 3
+
+// by key
+valuesSource({ id: 1 }, { id: 1 }, { id: 2 })
+  .pipe(distinct((v) => v.id))
+  .pipe(listen(console.log)); // {id:1}, {id:2}
+
+// with flush
+const reset = new Signal();
+stream.pipe(distinct(undefined, reset)).pipe(listen(console.log));
+reset.push(); // clears the seen-set
+```
+
+#### `first(predicate?)`
+
+Emits the first value then terminates. Optionally accepts a predicate — emits the first value for which it returns `true`. Emits `EMPTY` if the source completes without a match.
+
+```ts
+valuesSource(1, 2, 3).pipe(first()).pipe(listen(console.log)); // 1
+valuesSource(1, 2, 3)
+  .pipe(first((v) => v > 1))
+  .pipe(listen(console.log)); // 2
+```
+
+#### `last()`
+
+Emits the last value when the source completes. Emits `EMPTY` if the source completes without emitting. Combine with aggregation transformers like `count`, `sum`, or `scan` to get their final result.
+
+```ts
+valuesSource(1, 2, 3).pipe(last()).pipe(listen(console.log)); // 3
+```
+
+#### `range(start, offset)`
+
+Passes only values at indices `[start, start + offset]` (0-based). Values before `start` are skipped; the stream terminates after `offset` values.
+
+```ts
+valuesSource("a", "b", "c", "d", "e")
+  .pipe(range(1, 3))
+  .pipe(listen(console.log)); // b, c, d
+```
+
+---
+
+### Transformation
+
+#### `map(fn)`
+
+Transforms each value using `(value, index) => result`. The index is per-consumer .
+
+```ts
+valuesSource(1, 2, 3)
+  .pipe(map((v, i) => `${i}:${v}`))
+  .pipe(listen(console.log)); // 0:1, 1:2, 2:3
+```
+
+#### `flat(depth?)`
+
+Flattens a stream of arrays into individual values. `depth` controls how deep to flatten (default `0` = one level, equivalent to `Array.flat(1)`).
+
+```ts
+valuesSource([1, 2], [3, 4]).pipe(flat()).pipe(listen(console.log)); // 1, 2, 3, 4
+valuesSource([[1, 2], [3]])
+  .pipe(flat(1))
+  .pipe(listen(console.log)); // 1, 2, 3
+```
+
+#### `flat$(depth?)`
+
+Flattens a stream of `Consumable`s sequentially — consumes each inner `Consumable` and waits for it to complete before moving to the next. `depth` controls how many levels of nesting to flatten (default `1`).
+
+```ts
+valuesSource(valuesSource(1, 2), valuesSource(3, 4))
+  .pipe(flat$())
+  .pipe(listen(console.log)); // 1, 2, 3, 4
+```
+
+#### `scan(seed, reducer)`
+
+Accumulates values with a reducer and emits the running accumulator after each value — like `Array.reduce` but streaming. Pipe `last()` after it to get only the final result.
+
+```ts
+valuesSource(1, 2, 3)
+  .pipe(scan(0, (acc, v) => acc + v))
+  .pipe(listen(console.log)); // 1, 3, 6
+
+// final value only
+valuesSource(1, 2, 3)
+  .pipe(scan(0, (acc, v) => acc + v))
+  .pipe(last())
+  .pipe(listen(console.log)); // 6
+```
+
+#### `scanArray()`
+
+Accumulates all values into a growing array and emits the same array reference after each push. The array is mutated in place for performance. Use `last()` to get the final collected array.
+
+```ts
+valuesSource(1, 2, 3).pipe(scanArray()).pipe(last()).pipe(listen(console.log)); // [1, 2, 3]
+```
+
+#### `resolve(concurrency?)`
+
+Resolves a stream of `Promise`s. Emits resolved values or `Error<reason>` for rejections. The `concurrency` parameter (default `1`) controls how many promises can be in-flight simultaneously. Upstream credit is withheld until a slot is free, meaning the upstream producer is not even called until a slot opens — so there will be at most exactly `concurrency` promises in flight at any time, never more.
+
+```ts
+generatorSource(function* () {
+  yield fetch("/a");
+  yield fetch("/b");
+  yield fetch("/c");
+})
+  .pipe(resolve(2))
+  .pipe(listen(console.log));
+```
+
+#### `safe(fn)`
+
+Wraps a transformer pipeline in a try/catch. On success, values pass through unchanged. On a thrown error, emits `Error<thrown>` instead of crashing the pipeline.
+
+```ts
+valuesSource(1, 2, 3)
   .pipe(
     safe(
       map((v) => {
-        if (v === 2) throw new TypeError("bad value");
+        if (v === 2) throw "bad";
         return v;
       }),
     ),
   )
-  .pipe(
-    listen((v) => {
-      if (v instanceof Error) {
-        console.error("caught:", v.value);
-      } else {
-        console.log(v); // 1, 3
-      }
-    }),
-  );
+  .pipe(listen(console.log)); // 1, Error('bad'), 3
 ```
 
-> **Why are errors values?** Because most of your code doesn't throw. If errors were baked into every operator, you'd pay the cost of error-awareness on every single value, in every pipeline, for a case that might never happen. With `safe`, you opt in exactly where you need it. Errors flow through the same channel as values — you can filter them, log them, retry, or ignore them.
+#### `context(ctx)`
 
----
+Wraps each value with a shared mutable context object, emitting `{ value, context }`. The same context reference is shared across all values in the stream, making it useful for accumulating state without a separate `scan`.
 
-## Sources
-
-| Factory                           | Description                                       |
-| --------------------------------- | ------------------------------------------------- |
-| `of(...values)`                   | Fixed list of values, then completes              |
-| `fromIterable(iterable)`          | Any `Iterable` or factory function                |
-| `fromGenerator(fn)`               | Generator function, new instance per consumer     |
-| `fromInterval(ms)`                | `setInterval` counter, never completes on its own |
-| `fromTimeout(ms, value?)`         | `setTimeout`, single value then completes         |
-| `fromRange(start, end)`           | Integer range `[start, end)`                      |
-| `fromEventTarget(target, type)`   | DOM `EventTarget` events                          |
-| `fromAbortSignal(signal)`         | Emits once when `AbortSignal` fires               |
-| `fromFunction(fn)`                | Calls `fn` once, emits result then completes      |
-| `fromAsyncIterable(iterable)`     | Any `AsyncIterable`                               |
-| `fromAsyncIterator(iterator)`     | Any `AsyncIterator`                               |
-| `fromAsyncGenerator(fn)`          | Async generator function                          |
-| `fromAbortController(controller)` | Emits once when controller is aborted             |
-| `fromGcToken(target)`             | Emits when a `WeakRef` target is GC'd             |
-
----
-
-## Streams
-
-### `Stream<VALUE>`
-
-A multicast push source. Push values in, all consumers receive them. Exposes lifecycle as first-class observable sources.
-
-```typescript
-const $stream = new Stream<number>();
-
-$stream.$firstConsumerJoin.pipe(
-  listen(() => console.log("first consumer joined")),
-);
-$stream.$lastConsumerLeft.pipe(listen(() => console.log("last consumer left")));
-$stream.$terminate.pipe(listen((r) => console.log("terminated:", r)));
-
-$stream
-  .consume((c$, v) => {
-    console.log(v);
-    c$.next();
-  })
-  .next();
-$stream.push(1).push(2).push(3);
-$stream.terminate("complete");
-```
-
-**Lifecycle events:** `$push`, `$next`, `$consumerJoin`, `$consumerLeft`, `$firstConsumerJoin`, `$lastConsumerLeft`, `$drain`, `$terminate`
-
-### `Signal<VALUE>`
-
-A `Stream` that auto-terminates after the first push. For one-shot events.
-
-```typescript
-const $ready = new Signal<void>();
-$ready.pipe(listen(() => console.log("ready!")));
-$ready.push(); // emits, then terminates
-```
-
-### `State<VALUE>`
-
-A `Stream` with a `.value` property. Setting it pushes to all consumers.
-
-```typescript
-const $count = state(0);
-$count.pipe(listen((v) => console.log("count:", v)));
-$count.value = 1; // logs 'count: 1'
-$count.value = 2; // logs 'count: 2'
+```ts
+valuesSource(1, 2, 3)
+  .pipe(context({ total: 0 }))
+  .pipe(tap(({ value, context }) => (context.total += value)))
+  .pipe(listen(({ value, context }) => console.log(value, context.total)));
+// 1 1, 2 3, 3 6
 ```
 
 ---
-
-## Transformers
-
-### Filtering & Slicing
-
-```typescript
-filter(predicate)         // pass values matching predicate; rejected values go to .$complements
-take(n)                   // first n values then terminate
-skip(n)                   // skip first n values
-range(start, offset)      // skip `start` values, then pass `offset` values (slice by index position)
-takeWhile(predicate)      // take while predicate is true
-takeUntil(notifier)       // take until notifier emits
-skipWhile(predicate)      // skip while predicate is true
-skipUntil(notifier)       // skip until notifier emits
-first(predicate?)         // first value (or first matching predicate)
-last()                    // last value on completion
-distinct(keySelector?, $flushes?) // deduplicate using a Set across ALL seen values, not just consecutive ones
-```
-
-### Transformation
-
-```typescript
-map(fn); // transform each value
-tap(fn); // side effect, passes value through
-tapInput(fn); // tap on the input consumer
-tapTerminate(fn); // tap on termination
-scan(seed, reducer); // running accumulator, emits each step
-scanArray(); // accumulate all values into a single growing array, emit same reference each step
-context(ctx); // wrap each value as { value, context }
-```
-
-### Flattening
-
-```typescript
-flat(depth?)              // flatten arrays
-flat$()                   // flatten inner Consumables sequentially — waits for each to complete before next
-switch$()                 // switch to latest inner Consumable, cancel previous — use with hot sources only
-```
-
-### Combination
-
-```typescript
-merge(...others); // emit from all inputs as they arrive
-zip(...others); // pair values from all inputs into tuples
-combine(...others); // emit on any input, using last known value for others
-```
-
-### Timing
-
-```typescript
-debounce(ms); // emit after ms silence
-pace(ms); // rate-limit to one value per ms
-delay(ms); // delay each value by ms
-delayOnce(ms); // delay only the first value
-```
-
-### Windowing
-
-```typescript
-buffer(size, every?)      // sliding window arrays
-batch(size)               // non-overlapping chunks
-```
-
-### Sharing & Routing
-
-```typescript
-share(); // multicast via Stream.from
-passive(); // observe without driving the source
-gate(control$); // open/close based on boolean stream
-pump(); // eagerly drain upstream into a Stream
-latest(n); // buffer last n values for late subscribers
-```
-
-### Async
-
-```typescript
-resolve(concurrency?)     // resolve Promises, emit values or Error<reason>
-```
-
-### Error Handling
-
-```typescript
-safe(fn); // wrap pipeline in try/catch, emit Error<thrown> on throw
-```
-
-### Lifecycle
-
-```typescript
-terminate(); // emit termination reason, ignore values
-scope(...notifiers); // terminate when ANY notifier terminates
-scopeStrict(...notifiers); // terminate only when ALL notifiers have terminated
-```
 
 ### Aggregation
 
-All aggregation operators emit **running values**. Pipe `last()` after them to get the final result.
+All aggregation transformers emit a running value after each input — not just at the end so you can track the progress. Pipe `last()` after any of them to get only the final result.
 
-```typescript
-sum(); // running sum
-min(); // running minimum
-max(); // running maximum
-count(); // running count
-every(predicate); // true if all values match
-range(); // [min, max] running range
+#### `count()`
+
+Emits the running count after each value.
+
+```ts
+valuesSource("a", "b", "c").pipe(count()).pipe(listen(console.log)); // 1, 2, 3
+valuesSource("a", "b", "c")
+  .pipe(count())
+  .pipe(last())
+  .pipe(listen(console.log)); // 3
 ```
 
-```typescript
-of(1, 2, 3, 4, 5)
-  .pipe(scan(0, (acc, v) => acc + v))
+#### `sum()`
+
+Emits the running sum after each numeric value.
+
+```ts
+valuesSource(1, 2, 3).pipe(sum()).pipe(last()).pipe(listen(console.log)); // 6
+```
+
+#### `min()`
+
+Emits the running minimum after each numeric value.
+
+```ts
+valuesSource(3, 1, 4, 1, 5).pipe(min()).pipe(last()).pipe(listen(console.log)); // 1
+```
+
+#### `max()`
+
+Emits the running maximum after each numeric value.
+
+```ts
+valuesSource(3, 1, 4, 1, 5).pipe(max()).pipe(last()).pipe(listen(console.log)); // 5
+```
+
+#### `every(predicate)`
+
+Emits `true` while all values satisfy the predicate. Emits `false` and terminates immediately on the first failure.
+
+```ts
+valuesSource(1, 2, 3)
+  .pipe(every((v) => v > 0))
   .pipe(last())
-  .pipe(listen(console.log)); // 15
+  .pipe(listen(console.log)); // true
+valuesSource(1, -1, 3)
+  .pipe(every((v) => v > 0))
+  .pipe(last())
+  .pipe(listen(console.log)); // false
+```
+
+#### `batch(size)`
+
+Collects values into arrays of up to `size`. Emits a partial batch with any remaining values on stream completion.
+
+```ts
+valuesSource(1, 2, 3, 4, 5).pipe(batch(2)).pipe(listen(console.log)); // [1,2], [3,4], [5]
+```
+
+#### `buffer(size, startBufferEvery?)`
+
+Collects values into fixed-size sliding-window arrays. A new buffer starts every `startBufferEvery` values (defaults to `size`, giving non-overlapping windows). Incomplete buffers are emitted on stream completion.
+
+```ts
+// non-overlapping
+valuesSource(1, 2, 3, 4, 5).pipe(buffer(3)).pipe(listen(console.log)); // [1,2,3], [4,5]
+
+// sliding window
+valuesSource(1, 2, 3, 4).pipe(buffer(3, 1)).pipe(listen(console.log)); // [1,2,3], [2,3,4], [3,4], [4]
+```
+
+#### `zip(...others)`
+
+Combines values from multiple sources pairwise into tuples. Emits a tuple only when all inputs have provided a new value. Terminates when any input terminates. Unmatched values remaining at termination are available on `.$rest`.
+
+```ts
+const s1 = new Stream<number>();
+const s2 = new Stream<string>();
+s1.pipe(zip(s2)).pipe(listen(console.log));
+s1.push(1);
+s2.push("a"); // [1, 'a']
+s1.push(2);
+s2.push("b"); // [2, 'b']
+```
+
+#### `combine(...others)`
+
+Emits a tuple of the latest value from each input whenever any input emits. Uses `EMPTY` for inputs that have not yet emitted. Terminates when any input terminates. For `combineLatest` semantics, pipe `latest(1)` on each input before combining.
+
+```ts
+const s1 = valuesSource(1, 2, 3).pipe(delay(100));
+const s2 = valuesSource("a", "b").pipe(delay(200));
+s1.pipe(combine(s2)).pipe(listen(console.log));
+// [1, EMPTY], [2, EMPTY], [2, 'a'], [3, 'a'], [3, 'b']
+```
+
+#### `merge(...others)`
+
+Merges multiple sources into one, emitting values from all inputs as they arrive. Terminates when the primary input terminates.
+
+```ts
+const s1 = intervalSource(500).pipe(map(() => "A"));
+const s2 = intervalSource(700).pipe(map(() => "B"));
+s1.pipe(merge(s2)).pipe(listen(console.log)); // A, B, A, A, B, ...
 ```
 
 ---
 
-## Termination
+### Flow Control
 
-Every stream and consumer has two termination modes:
+#### `debounce(ms)`
 
-- `"abort"` — stop immediately, clear all queues
-- `"complete"` — drain remaining queued values at the consumer's own pace, then stop
+Emits the latest value only after `ms` milliseconds of silence. Each new incoming value resets the timer. Useful for search inputs or resize events.
 
-Both work with the `using` / `await using` keywords:
-
-```typescript
-{
-  using $stream = new Stream<number>(); // abort on block exit
-}
-
-{
-  await using $stream = new Stream<number>(); // complete on block exit, waits for drain
-}
+```ts
+stream.pipe(debounce(300)).pipe(listen(console.log));
 ```
 
-You can also scope a pipeline to a lifetime:
+#### `delay(ms)`
 
-```typescript
-// Automatically terminates when the component unmounts
-const $unmount = new Signal<void>();
+Delays each value by `ms` milliseconds using `setTimeout`. If `ms <= 0`, uses `queueMicrotask` instead.
 
-fromEventTarget(window, "resize")
-  .pipe(scope($unmount))
-  .pipe(listen(handleResize));
-
-// later...
-$unmount.push(); // everything cleans up
+```ts
+valuesSource(1, 2, 3).pipe(delay(500)).pipe(listen(console.log));
 ```
 
-### Filter complements, zip rest, and side channels
+#### `delayOnce(ms)`
 
-`filter` doesn't just pass or drop values. Rejected values go to a lazy `$complements` stream at zero cost if unused:
+Delays only the first value by `ms` milliseconds. All subsequent values pass through immediately.
 
-```typescript
-const $even = of(1, 2, 3, 4, 5).pipe(filter((v) => v % 2 === 0));
-$even.pipe(listen(console.log)); // 2, 4
-$even.$complements.pipe(listen(console.log)); // 1, 3, 5
+```ts
+valuesSource(1, 2, 3).pipe(delayOnce(500)).pipe(listen(console.log)); // 1 delayed, 2 and 3 immediate
 ```
 
-Use `tapInput` to access these side-channel properties mid-pipe without breaking the chain:
+#### `pace(ms)`
 
-```typescript
-$source
-  .pipe(tapInput((f: Filter<...>) => f.$complements.pipe(listen(logRejected))))
-  .pipe(filter(isValid))
-  .pipe(listen(process));
+Rate-limits output to at most one value per `ms` milliseconds. The timer is decoupled from emission: if a value arrives after the window has already expired, it is emitted directly with no delay. If a value arrives before the window expires, it is scheduled for the next available slot. Credit flows back to slow the upstream producer.
+
+```ts
+// fast upstream — values are spaced out to 500ms apart
+intervalSource(50).pipe(pace(500)).pipe(listen(console.log));
+
+// slow upstream — values that arrive after the window pass through immediately
+intervalSource(1000).pipe(pace(500)).pipe(listen(console.log));
 ```
 
-`zip` similarly exposes a `$rest` stream for unmatched values when one source ends before the other.
+#### `gate($control)`
 
-### `flat` vs `flat$` vs `switch$` — three flattening strategies
+Opens or closes the stream based on a boolean control source. `true` opens the gate and starts consuming the input; `false` closes it and terminates the inner consumer. The gate re-opens on the next `true`.
 
-All three flatten a stream of streams, but they have completely different behaviors:
-
-- `flat(depth?)` — flattens **arrays** into individual values. Nothing to do with inner streams.
-- `flat$()` — flattens inner **Consumables sequentially**. Subscribes to the first, waits for it to complete, then subscribes to the next. Use when order matters and you need each inner stream to finish before the next starts.
-- `switch$()` — always subscribes to the **latest** inner Consumable, cancelling the previous one. Use when only the most recent matters — like cancelling a previous search request when a new one arrives.
-
-```typescript
-// flat$ — sequential, ordered
-of(of(1, 2), of(3, 4)).pipe(flat$()).pipe(listen(console.log)); // 1, 2, 3, 4 in order
-
-// switch$ — latest wins, previous cancelled
-const $outer = new Stream<Consumable<number>>();
-$outer.pipe(switch$()).pipe(listen(console.log));
-const $s1 = new Stream<number>();
-const $s2 = new Stream<number>();
-$outer.push(s1);
-$s1.push(1); // logs 1
-$outer.push(s2); // $s1 is cancelled
-$s1.push(99); // ignored
-$s2.push(2); // logs 2
+```ts
+const toggle = intervalSource(3000).pipe(map((_, i) => i % 2 === 0));
+intervalSource(500).pipe(gate(toggle)).pipe(listen(console.log));
+// values flow for 3s, stop for 3s, flow for 3s, ...
 ```
 
-### `combine` vs `zip` vs `combineLatest`
+#### `passive()`
 
-- `zip` — waits for all inputs to have a new value, emits a tuple
-- `combine` — emits on any input using the last known value (or `EMPTY`) for the others
-- `combineLatest` — pipe `latest(1)` to each input before `zip`:
+Subscribes to the upstream without calling `next()`, so it never drives upstream pulls. Values are only received when the upstream pushes them independently.
 
-```typescript
-$s1
-  .pipe(latest(1))
-  .pipe(zip($s2.pipe(latest(1))))
+To understand why this matters: on a shared stream, the fastest consumer is the one that drives the source — when it calls `next()`, the shared source pulls the next value and broadcasts it to all consumers. Faster consumers process it immediately; slower ones enqueue it and drain at their own pace. If an observer consumer also calls `next()`, it competes to become the driver and pulls values faster than the intended driver would. When the intended driver is slow and cannot afford to miss values (so throttling transformers like `debounce` or `latest` are not an option), this extra pressure causes values to pile up in the slow consumer's queue, which can grow without bound and eventually exhaust memory. A passive consumer opts out entirely: it registers to receive values but never calls `next()`, so it never becomes the driver. It only receives values that the fastest active consumer already triggered, at exactly that consumer's pace.
+
+This is useful when you want to observe a shared stream without affecting its throughput.
+
+```ts
+const shared = intervalSource(500).pipe(share());
+
+// this consumer drives the source — calls next() after each value
+shared.pipe(listen((v) => console.log("driver:", v)));
+
+// this consumer only observes — never calls next(), never pulls
+shared.pipe(passive()).pipe(listen((v) => console.log("observer:", v)));
+```
+
+#### `pump()`
+
+Eagerly drains the upstream by pre-granting credit, pushing all values into an internal `Stream`. Useful for activating a dormant pipeline that has no terminal consumer yet.
+
+```ts
+valuesSource(1, 2, 3)
+  .pipe(map((v) => v * 2))
+  .pipe(tap(console.log))
+  .pipe(pump());
+```
+
+#### `share()`
+
+Converts a pull-based replayable source into a single shared execution via `Stream.from`. Without `share()`, each consumer of a replayable source gets its own independent run — its own iterator, its own timer, its own generator instance. `share()` collapses that into one execution that broadcasts to all consumers.
+
+Push-based sources like `eventTargetSource` or `abortSignalSource` don't need `share()` — each consumer already subscribes independently to the same live event, so there's no shared execution to coordinate. `share()` is specifically meaningful with pull-based sources like `iterableSource`, `generatorSource`, `rangeSource`, `intervalSource`, and similar.
+
+Note: with synchronous replayable sources, the first eager consumer will exhaust the source before others can subscribe — register all consumers before triggering consumption.
+
+```ts
+const shared = intervalSource(500).pipe(share());
+shared.pipe(listen((v) => console.log("A", v)));
+shared.pipe(listen((v) => console.log("B", v)));
+```
+
+#### `latest(n)`
+
+Buffers the last `n` values. Late consumers receive the buffered values immediately on subscription, then continue with live values. Requires `share()` before it when used with replayable sources, otherwise the source replays from the beginning for each consumer.
+
+```ts
+const buffered = intervalSource(300).pipe(share()).pipe(latest(2));
+// subscribe 2 seconds later — immediately receives the 2 most recent values
+setTimeout(() => buffered.pipe(listen(console.log)), 2000);
+```
+
+#### `switch$()`
+
+Subscribes to the latest inner `Consumable` emitted by the upstream, cancelling the previous one when a new one arrives. Non-`Consumable` values are passed through directly. Best used with hot sources — replayable sources may be exhausted before the inner consumer attaches.
+
+```ts
+const stream = new Stream<Consumable<number> | number>();
+stream.pipe(switch$()).pipe(listen(console.log));
+
+stream.push(valuesSource(1, 2)); // starts consuming inner
+stream.push(valuesSource(3, 4)); // cancels previous, starts new
+stream.push(99); // plain value, passed through
+```
+
+---
+
+### Side Effects & Termination
+
+#### `tap(fn)`
+
+Runs a side-effect callback `(value, index) => void` for each value without modifying it. The value passes through unchanged.
+
+```ts
+valuesSource(1, 2, 3)
+  .pipe(tap((v, i) => console.log("side effect", i, v)))
+  .pipe(listen());
+```
+
+#### `tapInput(fn)`
+
+Runs a side-effect with access to the raw input source before it enters the pipeline. Returns the input unchanged. Useful for tapping into side-channel streams like `filter.$complements` without breaking the chain.
+
+```ts
+source
+  .pipe(filter((v) => v > 2))
+  .pipe(tapInput((f) => f.$complements.pipe(listen(console.log))))
   .pipe(listen(console.log));
 ```
 
-### `distinct` — full deduplication with optional key and flush
+#### `tapTerminate(fn)`
 
-`distinct` uses a `Set` across all seen values, not just consecutive ones. Accepts a `keySelector` and a `$flushes` notifier to reset the set:
+Runs a callback when the stream terminates, receiving the termination reason (`"complete"` or `"abort"`). Values pass through unchanged.
 
-```typescript
-$stream.pipe(distinct((v) => v.id)).pipe(listen(console.log));
-$stream.pipe(distinct((v) => v.id, pageChange$)).pipe(listen(console.log)); // reset on page change
+```ts
+valuesSource(1, 2, 3)
+  .pipe(tapTerminate((reason) => console.log("done:", reason)))
+  .pipe(listen());
+// done: complete
 ```
 
-### `pump` — eager drain
+#### `listen(fn?)`
 
-`pump` is a trigger. By default a pipeline is dormant — nothing runs until a downstream consumer calls `next()`. `pump` wakes it up immediately without waiting for any downstream subscriber.
+Hot driver — consumes the source, calls `fn` for each value, and automatically grants credit after each call. Returns the input source for further chaining. The callback is optional if you only want to drive consumption.
 
-Importantly, `pump` doesn't control the rate — the pipeline's own transformers do. If there's a `resolve(2)` upstream, values come through at the rate `resolve` allows. If there's a `debounce`, values come through at the debounced rate. `pump` just removes the requirement for a downstream consumer to exist before the pipeline starts.
-
-This also means you don't need `listen` at the end. Use `tap` for side effects and `pump` to wake the pipeline — clean, self-contained, no terminal operator required:
-
-```typescript
-// tap + pump: side effects stay in the pipeline, pump is just the trigger
-fromEventTarget(socket, "message")
-  .pipe(map((e) => JSON.parse(e.data)))
-  .pipe(resolve(2))
-  .pipe(tap(updateUI)) // side effect lives here
-  .pipe(pump()); // just wakes it up
+```ts
+valuesSource(1, 2, 3).pipe(listen(console.log)); // 1, 2, 3
+valuesSource(1, 2, 3).pipe(listen()); // drives consumption, no callback
 ```
 
-Anything attached downstream of `pump()` is still dormant and needs its own wake-up call. You can use another `pump()`, or `tap + pump`, or `listen` — which is just a shorthand for `tap + pump`:
+#### `terminate()`
 
-```typescript
-const $hot = fromEventTarget(socket, "message")
-  .pipe(map((e) => JSON.parse(e.data)))
-  .pipe(resolve(2))
-  .pipe(tap(updateUI))
-  .pipe(pump()); // wakes the pipeline above
+Ignores all values and emits the termination reason (`"complete"` or `"abort"`) as a single value when the stream ends.
 
-// these are all equivalent
-$hot.pipe(listen(console.log)); // shorthand for tap + pump
-$hot
-  .pipe(map((v) => v.id))
-  .pipe(tap(console.log))
-  .pipe(pump()); // explicit tap + pump
+```ts
+valuesSource(1, 2, 3).pipe(terminate()).pipe(listen(console.log)); // 'complete'
 ```
 
-### `context` — shared data that travels with the pipeline
+#### `scope(...others)`
 
-Wraps each value as `{ value, context }` where the same context object is shared across all values. Its purpose goes far beyond accumulating state — it's a general-purpose carrier for anything that needs to be accessible at any downstream without threading it through the values themselves: session data, request metadata, correlation IDs, feature flags, user permissions, timing information.
+Terminates the pipeline when any of the provided notifier sources terminates (either `complete` or `abort`). The first notifier to terminate wins.
 
-```typescript
-// Attach session metadata to every event
-fromEventTarget(socket, "message")
-  .pipe(map((e) => JSON.parse(e.data)))
-  .pipe(context({ userId: session.userId, requestId: crypto.randomUUID() }))
-  .pipe(tap(({ value, context }) => logger.info(context.requestId, value)))
-  .pipe(map(({ value, context }) => ({ ...value, userId: context.userId })))
-  .pipe(resolve())
-  .pipe(pump());
-
-// Or accumulate state across values
-of(1, 2, 3)
-  .pipe(context({ total: 0 }))
-  .pipe(
-    tap(({ value, context }) => {
-      context.total += value;
-    }),
-  )
-  .pipe(
-    listen(({ value, context }) => console.log(value, "total:", context.total)),
-  );
+```ts
+const lifetime = timeoutSource(5000);
+intervalSource(500).pipe(scope(lifetime)).pipe(listen(console.log)); // stops after 5s
 ```
 
-### `delay(0)` — microtask scheduling
+#### `scopeStrict(...others)`
 
-`delay` with `ms <= 0` uses `queueMicrotask` instead of `setTimeout` — defers to the next microtask without leaving the current event loop tick.
+Like `scope`, but requires all notifiers to terminate before the pipeline terminates.
 
-### `State.value` vs `State.push`
-
-Setting `.value` updates the stored value and notifies consumers. Calling `.push()` notifies consumers without updating `.value` — useful for transient events on a state stream:
-
-```typescript
-const $status = state<string>("idle");
-$status.value = "loading"; // updates value, notifies consumers
-$status.push("ping"); // notifies consumers, $status.value still === 'loading'
+```ts
+const s1 = timeoutSource(1000);
+const s2 = timeoutSource(2000);
+intervalSource(300).pipe(scopeStrict(s1, s2)).pipe(listen(console.log)); // stops after 2s
 ```
 
-### Replayable sources
+#### `print(label?)`
 
-Sources like `of`, `fromIterable`, `fromGenerator`, `fromInterval`, `fromRange`, and `fromTimeout` are **replayable** — each consumer gets a fresh independent sequence. Use `share()` when you want multiple consumers to share the same running sequence instead of each replaying from the start.
+Logs each value to the console with an optional label prefix, then passes it through unchanged. Values continue downstream.
 
-**Critical gotcha with `share()` and synchronous replayable sources:** if the source is synchronous (like `of` or `fromIterable`) and the first consumer is also synchronous, it will drain the entire source in the same tick before any other consumer gets a chance to receive anything:
-
-```typescript
-const $shared = of(1, 2, 3).pipe(share());
-
-$shared.pipe(listen(console.log)); // 1, 2, 3 — drains the source immediately
-s$hared.pipe(listen(console.log)); // nothing — source already exhausted
+```ts
+valuesSource(1, 2, 3).pipe(print("val:")).pipe(listen()); // val: 1, val: 2, val: 3
 ```
 
-This only affects sources that are both replayable **and** synchronous — `of`, `fromIterable`, `fromRange`, `fromGenerator` with a synchronous generator. `fromInterval` is replayable too but asynchronous — each consumer gets its own independent timer and the first consumer never drains it in the same tick, so sharing it is perfectly safe.
+#### `toConsole(label?)`
 
-The fix is to register all consumers before any of them calls `next()`, or use `latest(n)` after `share()` to buffer values for late subscribers.
+Prints each value to the console and eagerly drains the stream via `pump()`.
 
-### `scope` vs `scopeStrict`
-
-`scope` terminates the pipeline when **any** notifier terminates. `scopeStrict` waits until **all** notifiers have terminated.
-
-```typescript
-// scope — stops when the first of these fires
-fromInterval(100).pipe(scope($userLogout, $sessionExpiry)).pipe(listen(tick));
-
-// scopeStrict — keeps running until both tasks are done
-fromInterval(500)
-  .pipe(scopeStrict($task1Done, $task2Done))
-  .pipe(listen(checkProgress));
+```ts
+valuesSource(1, 2, 3).pipe(toConsole("result:")); // result: 1, result: 2, result: 3
 ```
 
-### `debounce` vs `pace`
+## Protocol
 
-Both slow down a stream but solve different problems.
-
-`debounce` suppresses all values until the source goes quiet for `ms` milliseconds. Every new value resets the timer. Only the last value in a burst gets through. Use it when you want to react to the _end_ of activity — search inputs, resize handlers.
-
-`pace` enforces a minimum gap between emissions. The first value fires immediately. If the next value arrives before the interval has elapsed, it's scheduled to fire when the gap is up. If it arrives _after_ the interval has already elapsed, it fires immediately — no artificial delay added. No values are dropped. This is what distinguishes it from `delay`, which always adds a fixed delay regardless of when the value arrived.
-
-```typescript
-// Only search after user stops typing for 300ms
-fromEventTarget(input, "input").pipe(debounce(300)).pipe(listen(search));
-
-// Process sensor data at most once every 500ms
-fromEventTarget(sensor, "data").pipe(pace(500)).pipe(listen(process));
-```
-
-### The `EMPTY` sentinel
-
-`EMPTY` is a special symbol (`Symbol.for('empty')`) used to represent the absence of a value. You encounter it in two places:
-
-- `combine`: slots for inputs that haven't emitted yet are `EMPTY` rather than `undefined` (because `undefined` is a valid value a stream might emit)
-- `first` and `last`: if the stream completes without emitting, or is aborted, these operators emit `EMPTY` so your downstream handler is always called
-
-```typescript
-import { EMPTY } from "@watchmanlab/stream";
-
-of()
-  .pipe(first())
-  .pipe(
-    listen((v) => {
-      if (v === EMPTY) console.log("stream was empty");
-      else console.log("got:", v);
-    }),
-  );
-```
-
-### `every` — short-circuits on first failure
-
-`every` checks whether all values satisfy a predicate and terminates early the moment one fails — it does not wait for the stream to complete:
-
-```typescript
-of(1, -1, 3, 4)
-  .pipe(every((v) => v > 0))
-  .pipe(listen(console.log)); // false — stops after -1, never sees 3 or 4
-```
-
-### `range` transformer — slice by index
-
-Not to be confused with `fromRange` (which generates integers). The `range` _transformer_ slices a stream by position — skip `start` values, then pass `offset` values:
-
-```typescript
-of("a", "b", "c$", "d", "e").pipe(range(1, 3)).pipe(listen(console.log)); // 'b', 'c$', 'd'
-```
-
-### `scanArray` — collect into a growing array
-
-Accumulates all values into a single array, mutating and re-emitting the same reference each time. Use with `last()` to collect a stream into an array:
-
-```typescript
-of(1, 2, 3).pipe(scanArray()).pipe(last()).pipe(listen(console.log)); // [1, 2, 3]
-```
-
-### `terminate` transformer — observe the end
-
-Ignores all values and emits only the termination reason (`'complete'` or `'abort'`) when the stream ends:
-
-```typescript
-$fetch.pipe(terminate()).pipe(
-  listen((reason) => {
-    if (reason === "complete") cleanup();
-    if (reason === "abort") rollback();
-  }),
-);
-```
-
-### Value-changing transformers and detached pipelines
-
-Some transformers fundamentally change the type of what flows through: `terminate` discards all values and emits a termination reason, `last` waits for completion and emits a single value, `every` short-circuits and emits a boolean. Piping through any of these changes the downstream type — you can't continue the original pipeline after them.
-
-These are meant to be used on a detached branch. Two ways to do that:
-
-Split at an intermediate stage and attach the side branch from there:
-
-```typescript
-const $results = source.pipe(map(transform)).pipe(resolve());
-
-$results.pipe(listen(render)); // main pipeline
-$results.pipe(terminate()).pipe(listen((reason) => cleanup(reason))); // side branch
-$results.pipe(last()).pipe(listen((v) => log("final:", v))); // side branch
-```
-
-Or use `tapInput` to branch inline without breaking the fluent chain:
-
-```typescript
-$source
-  .pipe(map(transform))
-  .pipe(resolve())
-  .pipe(
-    tapInput(($r) => {
-      $r.pipe(terminate()).pipe(listen((reason) => cleanup(reason)));
-      $r.pipe(last()).pipe(listen((v) => log("final:", v)));
-    }),
-  )
-  .pipe(listen(render)); // main pipeline continues unaffected
-```
-
-The split-variable style is clearer when the side branch is substantial. `tapInput` is cleaner when you want to keep everything in one fluent expression.
-
-### `merge` termination behavior
-
-`merge` terminates when the **primary** input (the one you piped from) terminates — not when all inputs terminate. Secondary inputs are terminated at that point too:
-
-```typescript
-const $s1 = new Stream<number>();
-const $s2 = new Stream<number>();
-
-$s1.pipe(merge($s2)).pipe(listen(console.log));
-
-$s1.push(1); // logs 1
-$s2.push(2); // logs 2
-$s1.terminate("complete"); // pipeline ends, $s2 is also terminated
-$s2.push(3); // never arrives
-```
-
----
-
-## `for await...of`
-
-Every `Source` is an `AsyncIterable`. You can consume any pipeline with a standard `for await...of` loop.
-
-```typescript
-for await (const value of fromIterable([1, 2, 3]).pipe(map((v) => v * 2))) {
-  console.log(value); // 2, 4, 6
-}
-```
-
-## `for..of`
-
-Every `Source` is an `Iterable`. You can consume synchronous pipelines with a standard `for..of` loop.
-
-```typescript
-for (const value of fromIterable([1, 2, 3]).pipe(map((v) => v * 2))) {
-  console.log(value); // 2, 4, 6
-}
-```
-
-## `collect`
-
-Every `Source` has `collect`. so you can get values/value asynchronously or synchronously
-
-```typescript
-const value1 = await source.collect(1);
-const values1 = await source.collect(20);
-
-const value2 = source.collect(1, { sync: true });
-const values2 = source.collect(20, { sync: true });
-```
-
----
+The backpressure model is formally specified in [PROTOCOL.md](./PROTOCOL.md).
 
 ## License
 

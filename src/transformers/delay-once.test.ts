@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { of } from "../sources/of-source";
+import { valuesSource } from "../sources/values-source";
 import { delayOnce } from "./delay-once";
 import { listen } from "./listen";
 
@@ -8,7 +8,7 @@ describe("delayOnce", () => {
     const timestamps: number[] = [];
     const start = Date.now();
     await new Promise<void>((done) => {
-      of(1, 2, 3)
+      valuesSource(1, 2, 3)
         .pipe(delayOnce(80))
         .pipe(
           listen((v) => {
@@ -26,7 +26,7 @@ describe("delayOnce", () => {
   it("emits all values in order", async () => {
     const results: number[] = [];
     await new Promise<void>((done) => {
-      of(1, 2, 3)
+      valuesSource(1, 2, 3)
         .pipe(delayOnce(30))
         .pipe(
           listen((v) => {

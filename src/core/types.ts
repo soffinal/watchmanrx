@@ -6,7 +6,12 @@ import { Source } from "./source";
 export function isConsumable<T>(object: unknown): object is Consumable<T> {
   if (object instanceof Source || object instanceof Stream) return true;
 
-  return typeof object === "object" && object !== null && "consume" in object && typeof object.consume === "function";
+  return (
+    typeof object === "object" &&
+    object !== null &&
+    "consume" in object &&
+    typeof object.consume === "function"
+  );
 }
 
 /** The type of the {@link EMPTY} sentinel symbol. */
@@ -30,32 +35,50 @@ export class Error<const VALUE> extends globalThis.Error {
 export type TerminateReason = "abort" | "complete";
 
 /** Flattens an object type for better IDE display. */
-export type Prettify<T> = T extends { [K in keyof T]: T[K] } ? { [K in keyof T]: T[K] } : never;
+export type Prettify<T> = T extends { [K in keyof T]: T[K] }
+  ? { [K in keyof T]: T[K] }
+  : never;
 /** Creates a tuple type of `VALUE` repeated `SIZE` times. */
-export type SizedArray<VALUE, SIZE extends number = 2, ARR extends Array<VALUE> = []> = ARR["length"] extends SIZE
-  ? ARR
-  : SizedArray<VALUE, SIZE, [...ARR, VALUE]>;
+export type SizedArray<
+  VALUE,
+  SIZE extends number = 2,
+  ARR extends Array<VALUE> = [],
+> = ARR["length"] extends SIZE ? ARR : SizedArray<VALUE, SIZE, [...ARR, VALUE]>;
 /** Extracts the value types from a tuple of `Consumable`s. */
-export type ZipedArray<T extends Consumable<any>[]> = [...{ [K in keyof T]: ValueOfConsumable<T[K]> }];
+export type ZipedArray<T extends Consumable<any>[]> = [
+  ...{ [K in keyof T]: ValueOfConsumable<T[K]> },
+];
 
 export type ExtractStream<T> = T extends Stream<infer V> ? Stream<V> : never;
 
 /** Recursively extracts the value type from nested `Consumable`s up to `DEPTH` levels. */
-export type ValueOfConsumable<T, DEPTH extends number = 0, COUNTER extends any[] = []> = COUNTER["length"] extends DEPTH
+export type ValueOfConsumable<
+  T,
+  DEPTH extends number = 0,
+  COUNTER extends any[] = [],
+> = COUNTER["length"] extends DEPTH
   ? T extends Consumable<infer VALUE>
     ? VALUE
     : T
   : T extends Consumable<infer VALUE>
     ? ValueOfConsumable<VALUE, DEPTH, [...COUNTER, any]>
     : T;
-export type ValueOfPromise<T, DEPTH extends number = 0, COUNTER extends any[] = []> = COUNTER["length"] extends DEPTH
+export type ValueOfPromise<
+  T,
+  DEPTH extends number = 0,
+  COUNTER extends any[] = [],
+> = COUNTER["length"] extends DEPTH
   ? T extends Promise<infer VALUE>
     ? VALUE
     : T
   : T extends Promise<infer VALUE>
     ? ValueOfPromise<VALUE, DEPTH, [...COUNTER, any]>
     : T;
-export type ValueOfArray<T, DEPTH extends number = 0, COUNTER extends any[] = []> = COUNTER["length"] extends DEPTH
+export type ValueOfArray<
+  T,
+  DEPTH extends number = 0,
+  COUNTER extends any[] = [],
+> = COUNTER["length"] extends DEPTH
   ? T extends Array<infer VALUE>
     ? VALUE
     : T
@@ -63,7 +86,11 @@ export type ValueOfArray<T, DEPTH extends number = 0, COUNTER extends any[] = []
     ? ValueOfArray<VALUE, DEPTH, [...COUNTER, any]>
     : T;
 
-export type ValueOfError<T, DEPTH extends number = 0, COUNTER extends any[] = []> = COUNTER["length"] extends DEPTH
+export type ValueOfError<
+  T,
+  DEPTH extends number = 0,
+  COUNTER extends any[] = [],
+> = COUNTER["length"] extends DEPTH
   ? T extends Error<infer VALUE>
     ? VALUE
     : T

@@ -1,30 +1,30 @@
 import { describe, it, expect } from "bun:test";
-import { fromIterable } from "./iterable-source";
+import { iterableSource } from "./iterable-source";
 import { listen } from "../transformers/listen";
 
-describe("fromIterable", () => {
+describe("iterableSource", () => {
   it("emits values from an array", () => {
     const results: number[] = [];
-    fromIterable([1, 2, 3]).pipe(listen((v) => results.push(v)));
+    iterableSource([1, 2, 3]).pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1, 2, 3]);
   });
 
   it("emits values from a Set", () => {
     const results: number[] = [];
-    fromIterable(new Set([1, 2, 3])).pipe(listen((v) => results.push(v)));
+    iterableSource(new Set([1, 2, 3])).pipe(listen((v) => results.push(v)));
     expect(results).toEqual([1, 2, 3]);
   });
 
   it("accepts a factory function", () => {
     const results: number[] = [];
-    fromIterable(() => [10, 20, 30]).pipe(listen((v) => results.push(v)));
+    iterableSource(() => [10, 20, 30]).pipe(listen((v) => results.push(v)));
     expect(results).toEqual([10, 20, 30]);
   });
 
   it("creates a new iterator per consumer", () => {
     const r1: number[] = [];
     const r2: number[] = [];
-    const source = fromIterable([1, 2, 3]);
+    const source = iterableSource([1, 2, 3]);
     source.pipe(listen((v) => r1.push(v)));
     source.pipe(listen((v) => r2.push(v)));
     expect(r1).toEqual([1, 2, 3]);
@@ -33,7 +33,7 @@ describe("fromIterable", () => {
 
   it("completes after all values are emitted", () => {
     let status: string | undefined;
-    fromIterable([1])
+    iterableSource([1])
       .consume((self, v) => self.next(), {
         terminate: (_, r) => (status = r),
       })
@@ -43,7 +43,7 @@ describe("fromIterable", () => {
 
   it("emits nothing for empty iterable", () => {
     const results: number[] = [];
-    fromIterable([]).pipe(listen((v) => results.push(v)));
+    iterableSource<number>([]).pipe(listen((v) => results.push(v)));
     expect(results).toEqual([]);
   });
 });
