@@ -8,7 +8,7 @@ So, I decided to roll everything on my own. I started creating a masterless, pub
 
 This architectural vision demanded an ultra-efficient streaming library and a rock-solid, event-driven design. Before I could even build the pub/sub server, I realized I needed lower-level primitives. My original intention wasn't to write a full stream engine—I just wanted an elegant way to process fast chunks of event data. But as I kept stripping the mechanics down to their raw fundamentals, I ended up building my own pull-on-push streaming library from the ground up.
 
-_See the source code on [@watchmanlab/stream](https://github.com/watchmanlab/stream)._
+_See the source code on [egsp](https://github.com/watchmanlab/stream)._
 
 Now i want to tell you about a problem that took me two years and more than three hundred iterations, each iteration is from scratch and from first principles to solve properly.
 
@@ -955,4 +955,4 @@ The TypeScript implementation here is one expression of the protocol. The protoc
   - `@watchmanlab/rpc` – Low-overhead Remote Procedure Call stream boundaries.
   - `@watchmanlab/pubsub` – A masterless, highly available Pub/Sub architecture supporting agnostic transport protocols (HTTP, TCP, UDP, and Unix Domain Sockets).
 
-_[@watchmanlab/stream](https://github.com/watchmanlab/stream) is available on npm and JSR. zero runtime dependencies, ESM only._
+_[egsp](https://github.com/watchmanlab/stream) is available on npm and JSR. zero runtime dependencies, ESM only._
