@@ -1,11 +1,11 @@
 {
-  "name": "cnext",
+  "name": "watchmanrx",
   "description": "One unified model across **sync & async**, **hot & cold**, **push & pull**, and **lazy & eager** execution.",
   "version": "0.5.0",
   "author": "Soffinal <smari.sofiane@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/watchmanlab/cnext.git"
+    "url": "git+https://github.com/soffinal/watchmanrx.git"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",

@@ -1,11 +1,11 @@
-# CNext
+# WatchmanRx
 
 One unified model across **sync & async**, **hot & cold**, **push & pull**, and **lazy & eager** execution.
 
 ## Install
 
 ```sh
-npm install cnext
+npm install watchmanrx
 ```
 
 ## Contents
@@ -29,7 +29,7 @@ npm install cnext
 ### Quick start
 
 ```ts
-import { filter, map, iterableSource, listen, take, delay } from "cnext";
+import { filter, map, iterableSource, listen, take, delay } from "watchmanrx";
 
 // `source` is lazy and replayable
 // so you can consume it multiple times
@@ -79,7 +79,7 @@ The fundamental unit of consumption. A `Consumer` receives values and controls i
 Generally you will not create a `Consumer` manually since you get it from a `Consumable`.
 
 ```ts
-import { Consumer } from "cnext";
+import { Consumer } from "watchmanrx";
 
 const consumer = new Consumer<number>((self, value) => {
   console.log(value);
@@ -130,7 +130,7 @@ Abstract base class for all sources, streams and transformers. Provides `.pipe()
 A `Source` must have an implementation so we provide a good set of them and they are suffixed by `Source`.
 
 ```ts
-import { iterableSource, map, filter } from "cnext";
+import { iterableSource, map, filter } from "watchmanrx";
 
 const source = iterableSource([1, 2, 3, 4, 5]);
 
@@ -161,7 +161,7 @@ const sync = result.collect(3, { sync: true }); // [30, 40, 50]
 A multicast push source that broadcasts values to all its consumers. The primary building block for hot event sources.
 
 ```ts
-import { Stream, listen } from "cnext";
+import { Stream, listen } from "watchmanrx";
 
 const stream = new Stream<number>();
 

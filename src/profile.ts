@@ -1,7 +1,7 @@
 import { Source } from "./core/source";
 import { Stream } from "./core/stream";
 import { filter } from "./transformers/filter";
-
+import {} from "bun";
 function getHeapSize(): number {
   Bun.gc(true);
   return process.memoryUsage().heapUsed;
