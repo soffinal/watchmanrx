@@ -187,14 +187,16 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
    */
   push(value: VALUE): this {
     if (this._credit > 0 && !this._queue?.size) {
-      this._events.$beforeConsuming?.push(value);
       this._inProcessValue = value;
+      this._options.beforeConsuming?.(this, value);
+      this._events.$beforeConsuming?.push(value);
       this._handler(this, value);
       this._credit--;
     } else {
       (this._queue ??=
         this._options.queueFactory?.() ?? new DefaultQueue()).enqueue(value);
     }
+    this._options.push?.(this, value);
     this._events.$push?.push(value);
     return this;
   }
@@ -225,8 +227,10 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
 
     if (!this._queue?.size) {
       if (this._inProcessValue !== EMPTY) {
-        this._events.$afterConsuming?.push(this._inProcessValue);
+        const value = this._inProcessValue;
         this._inProcessValue = EMPTY;
+        this._options.afterConsuming?.(this, value);
+        this._events.$afterConsuming?.push(value);
       }
       this._options.next?.(this);
       this._events.$next?.push();
@@ -249,8 +253,9 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
         }
         break;
       }
-      this._events.$beforeConsuming?.push(value);
       this._inProcessValue = value;
+      this._options.beforeConsuming?.(this, value);
+      this._events.$beforeConsuming?.push(value);
       this._handler(this, value);
       this._credit--;
     }
@@ -285,8 +290,10 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
     }
 
     if (this._inProcessValue !== EMPTY) {
-      this._events.$afterConsuming?.push(this._inProcessValue);
+      const value = this._inProcessValue;
       this._inProcessValue = EMPTY;
+      this._options.afterConsuming?.(this, value);
+      this._events.$afterConsuming?.push(value);
     }
 
     this._initCleanup?.(reason);
@@ -323,6 +330,9 @@ export namespace Consumer {
   export interface Options<VALUE> {
     queueFactory?: () => Queue<VALUE>;
     init?: (consumer: Consumer<VALUE>) => undefined | InitCleanup;
+    push?: (consumer: Consumer<VALUE>, value: VALUE) => void;
+    beforeConsuming?: (consumer: Consumer<VALUE>, value: VALUE) => void;
+    afterConsuming?: (consumer: Consumer<VALUE>, value: VALUE) => void;
     next?: (consumer: Consumer<VALUE>) => void;
     drain?: (consumer: Consumer<VALUE>) => void;
     terminate?: (consumer: Consumer<VALUE>, reason: TerminateReason) => void;

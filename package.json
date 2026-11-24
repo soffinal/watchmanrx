@@ -1,11 +1,11 @@
 {
-  "name": "@watchmanlab/stream",
-  "description": "A Declarative TypeScript library that gives you lazy, reusable, composable, traceable, scalable, and controllable code execution.",
+  "name": "cnext",
+  "description": "One unified model across **sync & async**, **hot & cold**, **push & pull**, and **lazy & eager** execution.",
   "version": "0.5.0",
   "author": "Soffinal <smari.sofiane@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/watchmanlab/stream.git"
+    "url": "git+https://github.com/watchmanlab/cnext.git"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -21,10 +21,10 @@
   },
   "files": [
     "dist",
-    "README.md",
-    "PROTOCOL.md"
+    "README.md"
   ],
   "keywords": [
+    "egsp",
     "reactive",
     "streams",
     "backpressure",

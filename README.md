@@ -1,13 +1,11 @@
-# @watchmanlab/stream
+# CNext
 
-**A Declarative TypeScript library that gives you lazy, reusable, composable, traceable, scalable, and controllable code execution.**
-
-One unified model across **sync & async**, **hot & cold**, **push & pull**, and **lazy & eager** execution—built to work standalone or mix seamlessly with any paradigm and library you already use.
+One unified model across **sync & async**, **hot & cold**, **push & pull**, and **lazy & eager** execution.
 
 ## Install
 
 ```sh
-npm install @watchmanlab/stream
+npm install cnext
 ```
 
 ## Contents
@@ -31,14 +29,7 @@ npm install @watchmanlab/stream
 ### Quick start
 
 ```ts
-import {
-  filter,
-  map,
-  iterableSource,
-  listen,
-  take,
-  delay,
-} from "@watchmanlab/stream";
+import { filter, map, iterableSource, listen, take, delay } from "cnext";
 
 // `source` is lazy and replayable
 // so you can consume it multiple times
@@ -88,7 +79,7 @@ The fundamental unit of consumption. A `Consumer` receives values and controls i
 Generally you will not create a `Consumer` manually since you get it from a `Consumable`.
 
 ```ts
-import { Consumer } from "@watchmanlab/stream";
+import { Consumer } from "cnext";
 
 const consumer = new Consumer<number>((self, value) => {
   console.log(value);
@@ -139,7 +130,7 @@ Abstract base class for all sources, streams and transformers. Provides `.pipe()
 A `Source` must have an implementation so we provide a good set of them and they are suffixed by `Source`.
 
 ```ts
-import { iterableSource, map, filter } from "@watchmanlab/stream";
+import { iterableSource, map, filter } from "cnext";
 
 const source = iterableSource([1, 2, 3, 4, 5]);
 
@@ -170,7 +161,7 @@ const sync = result.collect(3, { sync: true }); // [30, 40, 50]
 A multicast push source that broadcasts values to all its consumers. The primary building block for hot event sources.
 
 ```ts
-import { Stream, listen } from "@watchmanlab/stream";
+import { Stream, listen } from "cnext";
 
 const stream = new Stream<number>();
 
@@ -944,7 +935,7 @@ valuesSource(1, 2, 3).pipe(toConsole("result:")); // result: 1, result: 2, resul
 
 ## Protocol
 
-The backpressure model is formally specified in [PROTOCOL.md](./PROTOCOL.md).
+The communication model is formally specified here [EGSP ](https://github.com/soffinal/egsp).
 
 ## License
 
