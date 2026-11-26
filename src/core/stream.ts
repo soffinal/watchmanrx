@@ -28,15 +28,21 @@ export class Stream<VALUE>
   extends Source<VALUE>
   implements Disposable, AsyncDisposable
 {
+  /** The number of instances (used for default names) */
+  private static instancesCount = -1;
+
   private _options: Stream.Options<VALUE>;
   private _events: Stream.Events<VALUE>;
   private _consumerSet: ConsumerSet<VALUE>;
   private _status: Stream.Status;
   private _initCleanup?: (reason: TerminateReason) => void;
   private pulling = false;
-
+  private _requests = 0;
+  private _lastRequestConsumer?: Consumer<VALUE>;
   constructor(options?: Stream.Options<VALUE>) {
-    super();
+    super(options?.name ?? "stream");
+    Stream.instancesCount++;
+
     this._options = options ?? {};
     this._events = {};
 
@@ -62,6 +68,7 @@ export class Stream<VALUE>
   [Symbol.dispose]() {
     this.terminate("abort");
   }
+
   get options(): Stream.Options<VALUE> {
     return this._options;
   }
@@ -90,7 +97,6 @@ export class Stream<VALUE>
   get consumerSet(): ConsumerSet<VALUE> {
     return this._consumerSet;
   }
-
   get status(): Stream.Status {
     return this._status;
   }
@@ -103,10 +109,17 @@ export class Stream<VALUE>
     );
   }
   /** Emits the fastest {@link Consumer} that called `next()`. */
-  get $next(): Source<Consumer<VALUE>> {
+  get $fastestConsumerNext(): Source<Consumer<VALUE>> {
     return Source.from(
-      (this._events.$next ??= new Stream<Consumer<VALUE>>({
-        lastConsumerLeft: () => (this._events.$next = undefined),
+      (this._events.$fastestConsumerNext ??= new Stream<Consumer<VALUE>>({
+        lastConsumerLeft: () => (this._events.$fastestConsumerNext = undefined),
+      })),
+    );
+  }
+  get $slowestConsumerNext(): Source<Consumer<VALUE>> {
+    return Source.from(
+      (this._events.$slowestConsumerNext ??= new Stream<Consumer<VALUE>>({
+        lastConsumerLeft: () => (this._events.$slowestConsumerNext = undefined),
       })),
     );
   }
@@ -206,6 +219,7 @@ export class Stream<VALUE>
     }
     return this;
   }
+
   /**
    * create a new consumer for this stream.
    * Fires `firstConsumerJoin` and `consumerJoin` lifecycle hooks.
@@ -218,6 +232,8 @@ export class Stream<VALUE>
     handler: Consumer.Handler<VALUE>,
     options?: Consumer.Options<VALUE>,
   ): Consumer<VALUE> {
+    this._requests++;
+
     const { next, terminate, ...rest } = options ?? {};
 
     const consumer = new Consumer(handler, {
@@ -225,16 +241,36 @@ export class Stream<VALUE>
       next: (consumer) => {
         if (!this.pulling) {
           this.pulling = true;
-          this._options.next?.(this, consumer);
-          this._events.$next?.push(consumer);
-          next?.(consumer);
+          this._options.fastestConsumerNext?.(this, consumer);
+          this._events.$fastestConsumerNext?.push(consumer);
+        }
+
+        this._requests--;
+
+        if (this._requests <= 0) {
+          this._requests = this._consumerSet.size;
+          this._lastRequestConsumer = undefined;
+          this._options.slowestConsumerNext?.(this, consumer);
+          this._events.$slowestConsumerNext?.push(consumer);
+        } else {
+          this._lastRequestConsumer = consumer;
         }
         this._options.consumerNext?.(this, consumer);
         this._events.$consumerNext?.push(consumer);
+        next?.(consumer);
       },
 
       terminate: (consumer, reason) => {
         if (this._consumerSet.delete(consumer)) {
+          this._requests--;
+          if (this._requests <= 0 && this._lastRequestConsumer) {
+            this._requests = this._consumerSet.size;
+            const lastRequestConsumer = this._lastRequestConsumer;
+            this._lastRequestConsumer = undefined;
+            this._options.slowestConsumerNext?.(this, lastRequestConsumer);
+            this._events.$slowestConsumerNext?.push(lastRequestConsumer);
+          }
+
           this._options.consumerLeft?.(this, consumer);
           this._events.$consumerLeft?.push(consumer);
 
@@ -314,14 +350,25 @@ export class Stream<VALUE>
    */
   static override from<VALUE>(
     consumable: Consumable<VALUE>,
-    options?: Stream.Options<VALUE>,
+    options?: Stream.Options<VALUE> & {
+      consumerDriver?: "slowest" | "fastest";
+    },
   ): Stream<VALUE> {
-    const { firstConsumerJoin, next, terminate, ...rest } = options ?? {};
+    const {
+      firstConsumerJoin,
+      fastestConsumerNext,
+      slowestConsumerNext,
+      consumerDriver = "fastest",
+      terminate,
+      ...rest
+    } = options ?? {};
 
     let consumableConsumer: Consumer<VALUE>;
 
     return new Stream({
       ...rest,
+      fastestConsumerNext,
+      slowestConsumerNext,
       firstConsumerJoin(stream, consumer) {
         consumableConsumer = consumable.consume(
           (_, value) => stream.push(value),
@@ -331,11 +378,19 @@ export class Stream<VALUE>
         );
         firstConsumerJoin?.(stream, consumer);
       },
-
-      next(stream, consumer) {
-        consumableConsumer.next();
-        next?.(stream, consumer);
-      },
+      ...(consumerDriver === "fastest"
+        ? {
+            fastestConsumerNext(stream, consumer) {
+              consumableConsumer.next();
+              fastestConsumerNext?.(stream, consumer);
+            },
+          }
+        : {
+            slowestConsumerNext(stream, consumer) {
+              consumableConsumer.next();
+              slowestConsumerNext?.(stream, consumer);
+            },
+          }),
       terminate(stream, reason) {
         consumableConsumer.terminate(reason);
         terminate?.(stream, reason);
@@ -349,13 +404,21 @@ export namespace Stream {
   export type Status = "active" | "drain" | TerminateReason;
 
   export interface Options<VALUE> {
+    name?: string;
     consumerSetFactory?: () => ConsumerSet<VALUE>;
     init?: (
       stream: Stream<VALUE>,
     ) => undefined | ((reason: TerminateReason) => void);
     push?: (stream: Stream<VALUE>, value: VALUE) => void;
-    next?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
+    fastestConsumerNext?: (
+      stream: Stream<VALUE>,
+      consumer: Consumer<VALUE>,
+    ) => void;
     consumerNext?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
+    slowestConsumerNext?: (
+      stream: Stream<VALUE>,
+      consumer: Consumer<VALUE>,
+    ) => void;
     consumerJoin?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
     consumerLeft?: (stream: Stream<VALUE>, consumer: Consumer<VALUE>) => void;
     firstConsumerJoin?: (
@@ -372,7 +435,8 @@ export namespace Stream {
 
   export type Events<VALUE> = {
     $push?: Stream<VALUE>;
-    $next?: Stream<Consumer<VALUE>>;
+    $fastestConsumerNext?: Stream<Consumer<VALUE>>;
+    $slowestConsumerNext?: Stream<Consumer<VALUE>>;
     $drain?: Stream<void>;
     $consumerNext?: Stream<Consumer<VALUE>>;
     $consumerJoin?: Stream<Consumer<VALUE>>;

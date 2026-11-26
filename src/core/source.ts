@@ -27,6 +27,8 @@ import { Empty, TerminateReason } from "./types";
 export abstract class Source<VALUE>
   implements Consumable<VALUE>, AsyncIterable<VALUE>, Iterable<VALUE>
 {
+  private static _refCount = -1;
+  private _name: string;
   async *[Symbol.asyncIterator](): AsyncIterator<VALUE> {
     let resolve: (value: VALUE) => void;
     let reject: (reason: TerminateReason) => void;
@@ -68,6 +70,15 @@ export abstract class Source<VALUE>
     }
   }
 
+  constructor(name?: string) {
+    Source._refCount++;
+    if (Source._refCount === Number.MAX_SAFE_INTEGER) Source._refCount = 1;
+
+    this._name = `${name ?? "source"}_${Source._refCount}`;
+  }
+  get name(): string {
+    return this._name;
+  }
   abstract consume(
     handler: Consumer.Handler<VALUE>,
     options?: Consumer.Options<VALUE>,
