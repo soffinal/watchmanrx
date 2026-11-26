@@ -58,7 +58,7 @@ source.pipe(listen((value) => console.log(value)));
 
 ## Core concepts
 
-At first glance this looks like any other reactive/streaming library,but it's fundamentally different and cover more than that.
+At first glance this looks like any other reactive/streaming library,but it's fundamentally different.
 
 There is a `Consumable` and it need to be consumed by a one or more `Consumer`(s),this concept is well known but here we go deeper and explore many concepts about the relation between them.
 
@@ -70,9 +70,13 @@ Now we will dive deep into each one.
 
 ### Consumable
 
+> [API Reference →](./API_REF.md#consumablevalue--interface)
+
 The base contract of the library. Any object with a `consume` method is a `Consumable` and `consume` must return a `Consumer`.
 
 ### Consumer
+
+> [API Reference →](./API_REF.md#consumervalue--class)
 
 The fundamental unit of consumption. A `Consumer` receives values and controls its own processing rate through a **credit system**: a value is only processed when the consumer has credit, granted by calling its `.next()` method. Values pushed without available credit are buffered in an internal FIFO queue and drained in order as credit is granted.
 
@@ -125,9 +129,11 @@ This makes a `Consumer` a self-contained execution unit you can monitor, trace, 
 
 ### Source
 
-Abstract base class for all sources, streams and transformers. Provides `.pipe()` for chaining, `.collect()` for terminal collection, and both `for await...of` and `for...of` iteration.
+> [API Reference →](./API_REF.md#sourcevalue--abstract-class)
 
-A `Source` must have an implementation so we provide a good set of them and they are suffixed by `Source`.
+Abstract base class for all sources, streams and transformers. Provides `.pipe()` for chaining, `.collect()` for terminal collection,`name` for tracing, and both `for await...of` and `for...of` iteration.
+
+A `Source` must have an implementation so we provide a premade ones and they are suffixed by `Source`.
 
 ```ts
 import { iterableSource, map, filter } from "watchmanrx";
@@ -158,7 +164,9 @@ const sync = result.collect(3, { sync: true }); // [30, 40, 50]
 
 ### Stream
 
-A multicast push source that broadcasts values to all its consumers. The primary building block for hot event sources.
+> [API Reference →](./API_REF.md#streamvalue--class-extends-sourcevalue)
+
+A multicast push and/or pull source that broadcasts values to all its consumers. The primary building block for hot events and/or custom cold sources.
 
 ```ts
 import { Stream, listen } from "watchmanrx";
@@ -174,17 +182,20 @@ stream.terminate("complete");
 
 **Lifecycle events** are exposed as first-class `Source`s:
 
-| Event                | Emits                                         |
-| -------------------- | --------------------------------------------- |
-| `$push`              | Every pushed value                            |
-| `$next`              | The fastest consumer that called `next()`     |
-| `$consumerNext`      | Any consumer that called `next()`             |
-| `$consumerJoin`      | Every new consumer                            |
-| `$consumerLeft`      | Every consumer that left                      |
-| `$firstConsumerJoin` | When the first consumer joins an empty stream |
-| `$lastConsumerLeft`  | When the last consumer leaves                 |
-| `$drain`             | When the stream enters drain state            |
-| `$terminate`         | The termination reason                        |
+| Event                  | Emits                                         |
+| ---------------------- | --------------------------------------------- |
+| `$push`                | Every pushed value                            |
+| `$fastestConsumerNext` | The fastest consumer that called `next()`     |
+| `$slowestConsumerNext` | The slowest consumer that called `next()`     |
+| `$consumerNext`        | Any consumer that called `next()`             |
+| `$consumerJoin`        | Every new consumer                            |
+| `$consumerLeft`        | Every consumer that left                      |
+| `$firstConsumerJoin`   | When the first consumer joins an empty stream |
+| `$lastConsumerLeft`    | When the last consumer leaves                 |
+| `$drain`               | When the stream enters drain state            |
+| `$terminate`           | The termination reason                        |
+
+> **Note** `Stream.Options` names match the lifecycle events names with `$` removed, and they are functions.
 
 **Resource management** via `using` / `await using`:
 
@@ -197,22 +208,32 @@ stream.terminate("complete");
 }
 ```
 
-`Stream.from(consumable)` bridges any unicast `Consumable` into a multicast `Stream`. Upstream pulls are driven by the fastest consumer; slower consumers buffer independently.
+`Stream.from(consumable)` bridges any unicast `Consumable` into a multicast `Stream`. Upstream pulls are driven by the fastest or slowest consumer; if fastest is the driver then slower consumers buffer independently.
 
 ```ts
-const shared = Stream.from(iterableSource([1, 2, 3]));
+const shared = Stream.from(iterableSource([1, 2, 3]), {
+  consumerDriver: "slowest", // or "fastest"
+});
 shared.pipe(listen((v) => console.log("A:", v)));
 shared.pipe(listen((v) => console.log("B:", v)));
 ```
 
+> **Note:** `consumerDriver` options has no effect when the source is pure hot.
+
 ## Sources
+
+> [API Reference →](./API_REF.md#sources)
 
 Like we said before `Source` is an abstract class so we need to implement it.
 Some of the sources are replayable — you can consume them multiple times and each consumer gets its own independent execution.
 
+> **Note:** to have sharable source between all consumers use `share()` transformer or wrap the source with `Stream.from(source)`.
+
 ---
 
 ### `valuesSource(...values)`
+
+> [API Reference →](./API_REF.md#valuessourcevalues--replayable)
 
 Emits a fixed list of inline values then completes. Shorthand for `iterableSource(values)`.
 
@@ -222,6 +243,8 @@ valuesSource(1, 2, 3).pipe(listen(console.log)); // 1, 2, 3
 
 ### `iterableSource(iterable)`
 
+> [API Reference →](./API_REF.md#iterablesourceiterable--replayable)
+
 Wraps any `Iterable` as a pull-based source. A new iterator is created per consumer , so each consumer gets a fresh traversal. Also accepts a factory function returning an `Iterable`.
 
 ```ts
@@ -230,6 +253,8 @@ iterableSource(() => new Set([1, 2, 3])).pipe(listen(console.log)); // factory f
 ```
 
 ### `asyncIterableSource(iterable)`
+
+> [API Reference →](./API_REF.md#asynciterablesourceasynciterable--replayable)
 
 Wraps any `AsyncIterable` as a pull-based source. A new async iterator is created per consumer. Also accepts a factory function returning an `AsyncIterable`.
 
@@ -243,6 +268,8 @@ asyncIterableSource(gen()).pipe(listen(console.log));
 
 ### `generatorSource(fn)`
 
+> [API Reference →](./API_REF.md#generatorsourcefn--replayable)
+
 Wraps a generator function as a pull-based source. The function is called once per consumer, so each consumer gets its own independent generator instance.
 
 ```ts
@@ -255,6 +282,8 @@ generatorSource(function* () {
 
 ### `asyncGeneratorSource(fn)`
 
+> [API Reference →](./API_REF.md#asyncgeneratorsourcefn--replayable)
+
 Wraps an async generator function as a pull-based source. The function is called once per consumer, so each consumer gets its own independent async generator instance.
 
 ```ts
@@ -266,6 +295,8 @@ asyncGeneratorSource(async function* () {
 
 ### `iteratorSource(iterator)`
 
+> [API Reference →](./API_REF.md#iteratorsourceiterator--replayable-factory-form)
+
 Wraps a synchronous `Iterator` directly. Each `next()` call pulls one value. Terminates with `"complete"` when the iterator is done. Also accepts a factory function returning an `Iterator`. Note: if a raw iterator (not a factory) is passed, it is shared across all consumers.
 
 ```ts
@@ -275,6 +306,8 @@ iteratorSource(() => [1, 2, 3].values()).pipe(listen(console.log)); // factory f
 
 ### `asyncIteratorSource(iterator)`
 
+> [API Reference →](./API_REF.md#asynciteratorsourceiterator)
+
 Wraps an `AsyncIterator` directly. Each `next()` call pulls one value asynchronously. Also accepts a factory function returning an `AsyncIterator`. If a raw iterator is passed, it is shared across all consumers.
 
 ```ts
@@ -282,6 +315,8 @@ asyncIteratorSource(() => someAsyncIterator()).pipe(listen(console.log));
 ```
 
 ### `functionSource(fn)`
+
+> [API Reference →](./API_REF.md#functionsourcefn--replayable)
 
 Calls `fn` once on the first `next()`, emits the result, then completes. Useful for wrapping a single lazy computation as a source.
 
@@ -291,6 +326,8 @@ functionSource(() => Math.random()).pipe(listen(console.log)); // one random num
 
 ### `rangeSource(start, end)`
 
+> [API Reference →](./API_REF.md#rangesourcestart-end--replayable)
+
 Emits integers from `start` (inclusive) to `end` (exclusive), then completes.
 
 ```ts
@@ -298,6 +335,8 @@ rangeSource(1, 5).pipe(listen(console.log)); // 1, 2, 3, 4
 ```
 
 ### `intervalSource(ms)`
+
+> [API Reference →](./API_REF.md#intervalsourcems--replayable)
 
 Emits an incrementing counter (starting at `0`) every `ms` milliseconds via `setInterval`. Never completes on its own — must be terminated externally (e.g. with `take`, `takeUntil`, or `scope`).
 
@@ -307,6 +346,8 @@ intervalSource(500).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
 
 ### `timeoutSource(ms, value?)`
 
+> [API Reference →](./API_REF.md#timeoutsourcems-value--replayable)
+
 Emits a single value after `ms` milliseconds via `setTimeout`, then completes. The emitted value defaults to `undefined` if not provided.
 
 ```ts
@@ -315,6 +356,8 @@ timeoutSource(1000, "tick").pipe(listen(console.log)); // 'tick'
 ```
 
 ### `eventTargetSource(target, eventType)`
+
+> [API Reference →](./API_REF.md#eventtargetsourcetarget-eventtype)
 
 Emits DOM events of the given type from an `EventTarget`. A new event listener is registered per consumer and removed on termination. Fully typed for known DOM event types.
 
@@ -327,6 +370,8 @@ eventTargetSource(window, "resize")
 
 ### `abortSignalSource(signal)`
 
+> [API Reference →](./API_REF.md#abortsignalsourcesignal)
+
 Emits once when the given `AbortSignal` is aborted, then completes. If the signal is already aborted at subscription time, emits immediately.
 
 ```ts
@@ -336,6 +381,8 @@ controller.abort();
 ```
 
 ### `abortControllerSource(controller)`
+
+> [API Reference →](./API_REF.md#abortcontrollersourcecontroller)
 
 Convenience wrapper around `abortSignalSource` that accepts an `AbortController` directly instead of its signal.
 
@@ -347,6 +394,8 @@ controller.abort();
 
 ### `gcTokenSource(token)`
 
+> [API Reference →](./API_REF.md#gctokensourcetoken)
+
 Emits once when the given object is garbage collected, using `FinalizationRegistry`. If the object is already collected at subscription time, emits immediately. Useful for tying stream lifetimes to object lifetimes.
 
 ```ts
@@ -357,6 +406,8 @@ obj = null; // allow GC
 
 ### `mergeSource(...sources)`
 
+> [API Reference →](./API_REF.md#mergesourcesources)
+
 Merges multiple sources into one, emitting values from all inputs as they arrive. Unlike the `merge` transformer, this is a standalone source that takes all inputs upfront. Terminates when the **last** input terminates.
 
 ```ts
@@ -366,6 +417,8 @@ mergeSource(s1, s2).pipe(listen(console.log)); // A, B, A, A, B, ...
 ```
 
 ### `combineSource(...sources)`
+
+> [API Reference →](./API_REF.md#combinesourcesources)
 
 Emits a tuple of the latest value from each input whenever any input emits. Uses `EMPTY` for inputs that have not yet emitted. Terminates when any input terminates. For `combineLatest` semantics, pipe `latest(1)` on each input before passing to `combineSource`.
 
@@ -378,6 +431,8 @@ combineSource(s1, s2).pipe(listen(console.log));
 
 ### `zipSource(...sources)`
 
+> [API Reference →](./API_REF.md#zipsourcesources)
+
 Combines values from multiple sources pairwise into tuples. Emits a tuple only when all inputs have provided a new value. Terminates when any input terminates. Unmatched values remaining at termination are available on `.$rest`.
 
 ```ts
@@ -388,6 +443,8 @@ zipSource(s1, s2).pipe(listen(console.log)); // [1,'a'], [2,'b'], [3,'c']
 
 ## Streams
 
+> [API Reference →](./API_REF.md#streams)
+
 | Stream      | Description                                                                   |
 | ----------- | ----------------------------------------------------------------------------- |
 | `Stream<T>` | Multicast push source. The base hot stream                                    |
@@ -396,13 +453,17 @@ zipSource(s1, s2).pipe(listen(console.log)); // [1,'a'], [2,'b'], [3,'c']
 
 ## Transformers
 
+> [API Reference →](./API_REF.md#transformers)
+
 Transformers are functions that accept a source and return a new source. They compose with `.pipe()`.
 
 ---
 
 ### Filtering
 
-#### `filter(predicate, complement?)`
+> [API Reference →](./API_REF.md#filtering)
+
+#### `filter(predicate, complement?)` — [ref](./API_REF.md#filterpredicate-complement)
 
 Passes only values that satisfy the predicate. Rejected values are forwarded to the lazy `.$complements` stream at zero cost if unused. The `.$complements` stream is passive relative to `filter` — consuming it never drives the upstream.
 
@@ -414,7 +475,7 @@ f.pipe(listen(console.log)); // 2, 4
 
 An optional inline `complement` callback can be passed as a second argument instead of subscribing to `.$complements`.
 
-#### `take(n)`
+#### `take(n)` — [ref](./API_REF.md#taken)
 
 Takes the first `n` values then terminates. Works with both cold and hot sources.
 
@@ -422,7 +483,7 @@ Takes the first `n` values then terminates. Works with both cold and hot sources
 intervalSource(100).pipe(take(3)).pipe(listen(console.log)); // 0, 1, 2
 ```
 
-#### `takeWhile(predicate)`
+#### `takeWhile(predicate)` — [ref](./API_REF.md#takewhilepredicate)
 
 Takes values while the predicate returns `true`. Terminates on the first `false`.
 
@@ -432,7 +493,7 @@ valuesSource(1, 2, 3, 4)
   .pipe(listen(console.log)); // 1, 2
 ```
 
-#### `takeUntil($notifier)`
+#### `takeUntil($notifier)` — [ref](./API_REF.md#takeuntilnotifier)
 
 Takes values until the notifier emits, then terminates. Useful for tying a stream's lifetime to an external event.
 
@@ -441,7 +502,7 @@ const stop = timeoutSource(1000);
 intervalSource(200).pipe(takeUntil(stop)).pipe(listen(console.log));
 ```
 
-#### `skip(n)`
+#### `skip(n)` — [ref](./API_REF.md#skipn)
 
 Skips the first `n` values, then passes all subsequent values through.
 
@@ -449,7 +510,7 @@ Skips the first `n` values, then passes all subsequent values through.
 valuesSource(1, 2, 3, 4).pipe(skip(2)).pipe(listen(console.log)); // 3, 4
 ```
 
-#### `skipWhile(predicate)`
+#### `skipWhile(predicate)` — [ref](./API_REF.md#skipwhilepredicate)
 
 Skips values while the predicate returns `true`. Once the predicate returns `false`, all subsequent values pass through without re-checking.
 
@@ -459,7 +520,7 @@ valuesSource(1, 2, 3, 4)
   .pipe(listen(console.log)); // 3, 4
 ```
 
-#### `skipUntil($notifier)`
+#### `skipUntil($notifier)` — [ref](./API_REF.md#skipuntilnotifier)
 
 Skips all values until the notifier emits, then passes all subsequent values through.
 
@@ -468,7 +529,7 @@ const start = timeoutSource(600);
 stream.pipe(skipUntil(start)).pipe(listen(console.log));
 ```
 
-#### `distinct(keySelector?, $flushes?)`
+#### `distinct(keySelector?, $flushes?)` — [ref](./API_REF.md#distinctkeyselector-flushes)
 
 Filters out duplicate values using a `Set`. Optionally accepts a `keySelector` to compare by a derived key. A `$flushes` notifier resets the seen-set when it emits.
 
@@ -486,7 +547,7 @@ stream.pipe(distinct(undefined, reset)).pipe(listen(console.log));
 reset.push(); // clears the seen-set
 ```
 
-#### `first(predicate?)`
+#### `first(predicate?)` — [ref](./API_REF.md#firstpredicate)
 
 Emits the first value then terminates. Optionally accepts a predicate — emits the first value for which it returns `true`. Emits `EMPTY` if the source completes without a match.
 
@@ -497,7 +558,7 @@ valuesSource(1, 2, 3)
   .pipe(listen(console.log)); // 2
 ```
 
-#### `last()`
+#### `last()` — [ref](./API_REF.md#last)
 
 Emits the last value when the source completes. Emits `EMPTY` if the source completes without emitting. Combine with aggregation transformers like `count`, `sum`, or `scan` to get their final result.
 
@@ -505,7 +566,7 @@ Emits the last value when the source completes. Emits `EMPTY` if the source comp
 valuesSource(1, 2, 3).pipe(last()).pipe(listen(console.log)); // 3
 ```
 
-#### `range(start, offset)`
+#### `range(start, offset)` — [ref](./API_REF.md#rangestart-offset)
 
 Passes only values at indices `[start, start + offset]` (0-based). Values before `start` are skipped; the stream terminates after `offset` values.
 
@@ -519,7 +580,9 @@ valuesSource("a", "b", "c", "d", "e")
 
 ### Transformation
 
-#### `map(fn)`
+> [API Reference →](./API_REF.md#transformation)
+
+#### `map(fn)` — [ref](./API_REF.md#mapfn)
 
 Transforms each value using `(value, index) => result`. The index is per-consumer .
 
@@ -529,7 +592,7 @@ valuesSource(1, 2, 3)
   .pipe(listen(console.log)); // 0:1, 1:2, 2:3
 ```
 
-#### `flat(depth?)`
+#### `flat(depth?)` — [ref](./API_REF.md#flatdepth)
 
 Flattens a stream of arrays into individual values. `depth` controls how deep to flatten (default `0` = one level, equivalent to `Array.flat(1)`).
 
@@ -540,7 +603,7 @@ valuesSource([[1, 2], [3]])
   .pipe(listen(console.log)); // 1, 2, 3
 ```
 
-#### `flat$(depth?)`
+#### `flat$(depth?)` — [ref](./API_REF.md#flatdepth-1)
 
 Flattens a stream of `Consumable`s sequentially — consumes each inner `Consumable` and waits for it to complete before moving to the next. `depth` controls how many levels of nesting to flatten (default `1`).
 
@@ -550,7 +613,7 @@ valuesSource(valuesSource(1, 2), valuesSource(3, 4))
   .pipe(listen(console.log)); // 1, 2, 3, 4
 ```
 
-#### `scan(seed, reducer)`
+#### `scan(seed, reducer)` — [ref](./API_REF.md#scanseed-reducer)
 
 Accumulates values with a reducer and emits the running accumulator after each value — like `Array.reduce` but streaming. Pipe `last()` after it to get only the final result.
 
@@ -566,7 +629,7 @@ valuesSource(1, 2, 3)
   .pipe(listen(console.log)); // 6
 ```
 
-#### `scanArray()`
+#### `scanArray()` — [ref](./API_REF.md#scanarray)
 
 Accumulates all values into a growing array and emits the same array reference after each push. The array is mutated in place for performance. Use `last()` to get the final collected array.
 
@@ -574,7 +637,7 @@ Accumulates all values into a growing array and emits the same array reference a
 valuesSource(1, 2, 3).pipe(scanArray()).pipe(last()).pipe(listen(console.log)); // [1, 2, 3]
 ```
 
-#### `resolve(concurrency?)`
+#### `resolve(concurrency?)` — [ref](./API_REF.md#resolveconcurrency)
 
 Resolves a stream of `Promise`s. Emits resolved values or `Error<reason>` for rejections. The `concurrency` parameter (default `1`) controls how many promises can be in-flight simultaneously. Upstream credit is withheld until a slot is free, meaning the upstream producer is not even called until a slot opens — so there will be at most exactly `concurrency` promises in flight at any time, never more.
 
@@ -588,7 +651,7 @@ generatorSource(function* () {
   .pipe(listen(console.log));
 ```
 
-#### `safe(fn)`
+#### `safe(fn)` — [ref](./API_REF.md#safefn)
 
 Wraps a transformer pipeline in a try/catch. On success, values pass through unchanged. On a thrown error, emits `Error<thrown>` instead of crashing the pipeline.
 
@@ -605,7 +668,7 @@ valuesSource(1, 2, 3)
   .pipe(listen(console.log)); // 1, Error('bad'), 3
 ```
 
-#### `context(ctx)`
+#### `context(ctx)` — [ref](./API_REF.md#contextctx)
 
 Wraps each value with a shared mutable context object, emitting `{ value, context }`. The same context reference is shared across all values in the stream, making it useful for accumulating state without a separate `scan`.
 
@@ -621,9 +684,11 @@ valuesSource(1, 2, 3)
 
 ### Aggregation
 
+> [API Reference →](./API_REF.md#aggregation)
+
 All aggregation transformers emit a running value after each input — not just at the end so you can track the progress. Pipe `last()` after any of them to get only the final result.
 
-#### `count()`
+#### `count()` — [ref](./API_REF.md#count)
 
 Emits the running count after each value.
 
@@ -635,7 +700,7 @@ valuesSource("a", "b", "c")
   .pipe(listen(console.log)); // 3
 ```
 
-#### `sum()`
+#### `sum()` — [ref](./API_REF.md#sum)
 
 Emits the running sum after each numeric value.
 
@@ -643,7 +708,7 @@ Emits the running sum after each numeric value.
 valuesSource(1, 2, 3).pipe(sum()).pipe(last()).pipe(listen(console.log)); // 6
 ```
 
-#### `min()`
+#### `min()` — [ref](./API_REF.md#min)
 
 Emits the running minimum after each numeric value.
 
@@ -651,7 +716,7 @@ Emits the running minimum after each numeric value.
 valuesSource(3, 1, 4, 1, 5).pipe(min()).pipe(last()).pipe(listen(console.log)); // 1
 ```
 
-#### `max()`
+#### `max()` — [ref](./API_REF.md#max)
 
 Emits the running maximum after each numeric value.
 
@@ -659,7 +724,7 @@ Emits the running maximum after each numeric value.
 valuesSource(3, 1, 4, 1, 5).pipe(max()).pipe(last()).pipe(listen(console.log)); // 5
 ```
 
-#### `every(predicate)`
+#### `every(predicate)` — [ref](./API_REF.md#everypredicate)
 
 Emits `true` while all values satisfy the predicate. Emits `false` and terminates immediately on the first failure.
 
@@ -674,7 +739,7 @@ valuesSource(1, -1, 3)
   .pipe(listen(console.log)); // false
 ```
 
-#### `batch(size)`
+#### `batch(size)` — [ref](./API_REF.md#batchsize)
 
 Collects values into arrays of up to `size`. Emits a partial batch with any remaining values on stream completion.
 
@@ -682,7 +747,7 @@ Collects values into arrays of up to `size`. Emits a partial batch with any rema
 valuesSource(1, 2, 3, 4, 5).pipe(batch(2)).pipe(listen(console.log)); // [1,2], [3,4], [5]
 ```
 
-#### `buffer(size, startBufferEvery?)`
+#### `buffer(size, startBufferEvery?)` — [ref](./API_REF.md#buffersize-startbufferevery)
 
 Collects values into fixed-size sliding-window arrays. A new buffer starts every `startBufferEvery` values (defaults to `size`, giving non-overlapping windows). Incomplete buffers are emitted on stream completion.
 
@@ -694,7 +759,7 @@ valuesSource(1, 2, 3, 4, 5).pipe(buffer(3)).pipe(listen(console.log)); // [1,2,3
 valuesSource(1, 2, 3, 4).pipe(buffer(3, 1)).pipe(listen(console.log)); // [1,2,3], [2,3,4], [3,4], [4]
 ```
 
-#### `zip(...others)`
+#### `zip(...others)` — [ref](./API_REF.md#zipothers)
 
 Combines values from multiple sources pairwise into tuples. Emits a tuple only when all inputs have provided a new value. Terminates when any input terminates. Unmatched values remaining at termination are available on `.$rest`.
 
@@ -708,7 +773,7 @@ s1.push(2);
 s2.push("b"); // [2, 'b']
 ```
 
-#### `combine(...others)`
+#### `combine(...others)` — [ref](./API_REF.md#combineothers)
 
 Emits a tuple of the latest value from each input whenever any input emits. Uses `EMPTY` for inputs that have not yet emitted. Terminates when any input terminates. For `combineLatest` semantics, pipe `latest(1)` on each input before combining.
 
@@ -719,7 +784,7 @@ s1.pipe(combine(s2)).pipe(listen(console.log));
 // [1, EMPTY], [2, EMPTY], [2, 'a'], [3, 'a'], [3, 'b']
 ```
 
-#### `merge(...others)`
+#### `merge(...others)` — [ref](./API_REF.md#mergeothers)
 
 Merges multiple sources into one, emitting values from all inputs as they arrive. Terminates when the primary input terminates.
 
@@ -733,7 +798,9 @@ s1.pipe(merge(s2)).pipe(listen(console.log)); // A, B, A, A, B, ...
 
 ### Flow Control
 
-#### `debounce(ms)`
+> [API Reference →](./API_REF.md#flow-control)
+
+#### `debounce(ms)` — [ref](./API_REF.md#debouncems)
 
 Emits the latest value only after `ms` milliseconds of silence. Each new incoming value resets the timer. Useful for search inputs or resize events.
 
@@ -741,7 +808,7 @@ Emits the latest value only after `ms` milliseconds of silence. Each new incomin
 stream.pipe(debounce(300)).pipe(listen(console.log));
 ```
 
-#### `delay(ms)`
+#### `delay(ms)` — [ref](./API_REF.md#delayms)
 
 Delays each value by `ms` milliseconds using `setTimeout`. If `ms <= 0`, uses `queueMicrotask` instead.
 
@@ -749,7 +816,7 @@ Delays each value by `ms` milliseconds using `setTimeout`. If `ms <= 0`, uses `q
 valuesSource(1, 2, 3).pipe(delay(500)).pipe(listen(console.log));
 ```
 
-#### `delayOnce(ms)`
+#### `delayOnce(ms)` — [ref](./API_REF.md#delayoncems)
 
 Delays only the first value by `ms` milliseconds. All subsequent values pass through immediately.
 
@@ -757,7 +824,7 @@ Delays only the first value by `ms` milliseconds. All subsequent values pass thr
 valuesSource(1, 2, 3).pipe(delayOnce(500)).pipe(listen(console.log)); // 1 delayed, 2 and 3 immediate
 ```
 
-#### `pace(ms)`
+#### `pace(ms)` — [ref](./API_REF.md#pacems)
 
 Rate-limits output to at most one value per `ms` milliseconds. The timer is decoupled from emission: if a value arrives after the window has already expired, it is emitted directly with no delay. If a value arrives before the window expires, it is scheduled for the next available slot. Credit flows back to slow the upstream producer.
 
@@ -769,7 +836,7 @@ intervalSource(50).pipe(pace(500)).pipe(listen(console.log));
 intervalSource(1000).pipe(pace(500)).pipe(listen(console.log));
 ```
 
-#### `gate($control)`
+#### `gate($control)` — [ref](./API_REF.md#gatecontrol)
 
 Opens or closes the stream based on a boolean control source. `true` opens the gate and starts consuming the input; `false` closes it and terminates the inner consumer. The gate re-opens on the next `true`.
 
@@ -779,7 +846,7 @@ intervalSource(500).pipe(gate(toggle)).pipe(listen(console.log));
 // values flow for 3s, stop for 3s, flow for 3s, ...
 ```
 
-#### `passive()`
+#### `passive()` — [ref](./API_REF.md#passive)
 
 Subscribes to the upstream without calling `next()`, so it never drives upstream pulls. Values are only received when the upstream pushes them independently.
 
@@ -797,7 +864,7 @@ shared.pipe(listen((v) => console.log("driver:", v)));
 shared.pipe(passive()).pipe(listen((v) => console.log("observer:", v)));
 ```
 
-#### `pump()`
+#### `pump()` — [ref](./API_REF.md#pump)
 
 Eagerly drains the upstream by pre-granting credit, pushing all values into an internal `Stream`. Useful for activating a dormant pipeline that has no terminal consumer yet.
 
@@ -808,7 +875,7 @@ valuesSource(1, 2, 3)
   .pipe(pump());
 ```
 
-#### `share()`
+#### `share()` — [ref](./API_REF.md#share)
 
 Converts a pull-based replayable source into a single shared execution via `Stream.from`. Without `share()`, each consumer of a replayable source gets its own independent run — its own iterator, its own timer, its own generator instance. `share()` collapses that into one execution that broadcasts to all consumers.
 
@@ -822,7 +889,7 @@ shared.pipe(listen((v) => console.log("A", v)));
 shared.pipe(listen((v) => console.log("B", v)));
 ```
 
-#### `latest(n)`
+#### `latest(n)` — [ref](./API_REF.md#latestn)
 
 Buffers the last `n` values. Late consumers receive the buffered values immediately on subscription, then continue with live values. Requires `share()` before it when used with replayable sources, otherwise the source replays from the beginning for each consumer.
 
@@ -832,7 +899,7 @@ const buffered = intervalSource(300).pipe(share()).pipe(latest(2));
 setTimeout(() => buffered.pipe(listen(console.log)), 2000);
 ```
 
-#### `switch$()`
+#### `switch$()` — [ref](./API_REF.md#switch)
 
 Subscribes to the latest inner `Consumable` emitted by the upstream, cancelling the previous one when a new one arrives. Non-`Consumable` values are passed through directly. Best used with hot sources — replayable sources may be exhausted before the inner consumer attaches.
 
@@ -849,7 +916,9 @@ stream.push(99); // plain value, passed through
 
 ### Side Effects & Termination
 
-#### `tap(fn)`
+> [API Reference →](./API_REF.md#side-effects--termination)
+
+#### `tap(fn)` — [ref](./API_REF.md#tapfn)
 
 Runs a side-effect callback `(value, index) => void` for each value without modifying it. The value passes through unchanged.
 
@@ -859,7 +928,7 @@ valuesSource(1, 2, 3)
   .pipe(listen());
 ```
 
-#### `tapInput(fn)`
+#### `tapInput(fn)` — [ref](./API_REF.md#tapinputfn)
 
 Runs a side-effect with access to the raw input source before it enters the pipeline. Returns the input unchanged. Useful for tapping into side-channel streams like `filter.$complements` without breaking the chain.
 
@@ -870,7 +939,7 @@ source
   .pipe(listen(console.log));
 ```
 
-#### `tapTerminate(fn)`
+#### `tapTerminate(fn)` — [ref](./API_REF.md#tapterminatefn)
 
 Runs a callback when the stream terminates, receiving the termination reason (`"complete"` or `"abort"`). Values pass through unchanged.
 
@@ -881,7 +950,7 @@ valuesSource(1, 2, 3)
 // done: complete
 ```
 
-#### `listen(fn?)`
+#### `listen(fn?)` — [ref](./API_REF.md#listenfn)
 
 Hot driver — consumes the source, calls `fn` for each value, and automatically grants credit after each call. Returns the input source for further chaining. The callback is optional if you only want to drive consumption.
 
@@ -890,7 +959,7 @@ valuesSource(1, 2, 3).pipe(listen(console.log)); // 1, 2, 3
 valuesSource(1, 2, 3).pipe(listen()); // drives consumption, no callback
 ```
 
-#### `terminate()`
+#### `terminate()` — [ref](./API_REF.md#terminate)
 
 Ignores all values and emits the termination reason (`"complete"` or `"abort"`) as a single value when the stream ends.
 
@@ -898,7 +967,7 @@ Ignores all values and emits the termination reason (`"complete"` or `"abort"`) 
 valuesSource(1, 2, 3).pipe(terminate()).pipe(listen(console.log)); // 'complete'
 ```
 
-#### `scope(...others)`
+#### `scope(...others)` — [ref](./API_REF.md#scopeothers)
 
 Terminates the pipeline when any of the provided notifier sources terminates (either `complete` or `abort`). The first notifier to terminate wins.
 
@@ -907,7 +976,7 @@ const lifetime = timeoutSource(5000);
 intervalSource(500).pipe(scope(lifetime)).pipe(listen(console.log)); // stops after 5s
 ```
 
-#### `scopeStrict(...others)`
+#### `scopeStrict(...others)` — [ref](./API_REF.md#scopestrictothers)
 
 Like `scope`, but requires all notifiers to terminate before the pipeline terminates.
 
@@ -917,7 +986,7 @@ const s2 = timeoutSource(2000);
 intervalSource(300).pipe(scopeStrict(s1, s2)).pipe(listen(console.log)); // stops after 2s
 ```
 
-#### `print(label?)`
+#### `print(label?)` — [ref](./API_REF.md#printlabel)
 
 Logs each value to the console with an optional label prefix, then passes it through unchanged. Values continue downstream.
 
@@ -925,7 +994,7 @@ Logs each value to the console with an optional label prefix, then passes it thr
 valuesSource(1, 2, 3).pipe(print("val:")).pipe(listen()); // val: 1, val: 2, val: 3
 ```
 
-#### `toConsole(label?)`
+#### `toConsole(label?)` — [ref](./API_REF.md#toconsolelabel)
 
 Prints each value to the console and eagerly drains the stream via `pump()`.
 

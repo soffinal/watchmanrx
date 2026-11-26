@@ -27,6 +27,10 @@ import { Source } from "./source";
  * consumer.push(2);
  */
 export class Consumer<VALUE> implements Disposable, AsyncDisposable {
+  /** The number of instances (used for default names) */
+  private static _refCount = -1;
+  /**Consumer name useful for tracing and targeting */
+  private _name: string;
   /** The current handler function. Replaced with a no-op after termination. */
   private _handler: Consumer.Handler<VALUE>;
   /** Consumer options including queue factory, lifecycle hooks, and credit callbacks. */
@@ -48,6 +52,10 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
     handler: Consumer.Handler<VALUE>,
     options?: Consumer.Options<VALUE>,
   ) {
+    Consumer._refCount++;
+    if (Consumer._refCount === Number.MAX_SAFE_INTEGER) Consumer._refCount = 1;
+
+    this._name = `${options?.name ?? "consumer"}_${Consumer._refCount}`;
     this._handler = handler;
     this._options = options ?? {};
     this._events = {};
@@ -74,7 +82,9 @@ export class Consumer<VALUE> implements Disposable, AsyncDisposable {
   [Symbol.dispose]() {
     this.terminate("abort");
   }
-
+  get name(): string {
+    return this._name;
+  }
   get handler(): Consumer.Handler<VALUE> {
     return this._handler;
   }
@@ -328,6 +338,7 @@ export namespace Consumer {
    * All fields are optional lifecycle hooks.
    */
   export interface Options<VALUE> {
+    name?: string;
     queueFactory?: () => Queue<VALUE>;
     init?: (consumer: Consumer<VALUE>) => undefined | InitCleanup;
     push?: (consumer: Consumer<VALUE>, value: VALUE) => void;

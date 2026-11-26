@@ -97,10 +97,10 @@ describe("Stream", () => {
       expect(pushed).toEqual([1, 2]);
     });
 
-    it("$next emits when the fastest consumer pull", () => {
+    it("$fastestConsumerNext emits when the fastest consumer pull", () => {
       const stream = new Stream<number>();
       const pullers: Consumer<any>[] = [];
-      stream.$next
+      stream.$fastestConsumerNext
         .consume((self, c) => {
           pullers.push(c);
           self.next();
@@ -109,6 +109,32 @@ describe("Stream", () => {
       const c1 = stream.consume((self, v) => self.next()).next();
       const c2 = stream.consume((self, v) => self.next()).next();
       stream.push(1).push(2);
+      expect(pullers.length).toEqual(3);
+      expect(pullers).toEqual([c1, c1, c1]);
+    });
+    it("$slowestConsumerNext emits until the slowest consumer pull", async () => {
+      const pullers: Consumer<any>[] = [];
+      let count = 2;
+      const stream = new Stream<number>({
+        slowestConsumerNext(stream, consumer) {
+          pullers.push(consumer);
+          if (count) stream.push(count--);
+          else consumer.terminate("abort");
+        },
+      });
+
+      const c1 = stream.consume((self, v) => setTimeout(() => self.next()), {
+        name: "slow",
+      });
+
+      const c2 = stream.consume((self, v) => self.next(), { name: "fast" });
+
+      setTimeout(() => c1.next());
+
+      c2.next();
+
+      await new Promise((r) => setTimeout(r, 20));
+
       expect(pullers.length).toEqual(3);
       expect(pullers).toEqual([c1, c1, c1]);
     });

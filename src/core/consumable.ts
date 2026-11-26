@@ -8,6 +8,7 @@ import { Consumer } from "./consumer";
  * @template VALUE The type of values emitted.
  */
 export interface Consumable<VALUE> {
+  readonly name: string;
   consume(
     handler: Consumer.Handler<VALUE>,
     options?: Consumer.Options<VALUE>,
