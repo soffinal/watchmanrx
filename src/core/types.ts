@@ -34,6 +34,9 @@ export class Error<const VALUE> extends globalThis.Error {
 /** Reason a stream or consumer was terminated. */
 export type TerminateReason = "abort" | "complete";
 
+/**Whos drive the source */
+export type SourceDriver = "slowest" | "fastest";
+
 /** Flattens an object type for better IDE display. */
 export type Prettify<T> = T extends { [K in keyof T]: T[K] }
   ? { [K in keyof T]: T[K] }

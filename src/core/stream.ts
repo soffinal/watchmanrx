@@ -1,4 +1,4 @@
-import { TerminateReason } from "./types";
+import { SourceDriver, TerminateReason } from "./types";
 import { Consumer } from "./consumer";
 import { EMPTY_THIS_FUNCTION } from "./consts";
 import { DefaultConsumerSet } from "./default-consumer-set";
@@ -342,7 +342,7 @@ export class Stream<VALUE>
   /**
    * Creates a `Stream` that pulls from a {@link Consumable} source.
    * Bridges unicast sources into a multicast `Stream`, pulling from the source
-   * is triggered by the faster consumer and all consumer will get the value,
+   * is triggered by the faster or slo consumer and all consumer will get the value,
    * so slower ones will buffer the value and consume it at their own pace.
    *
    * @param consumable The upstream consumable to pull from.
@@ -350,15 +350,13 @@ export class Stream<VALUE>
    */
   static override from<VALUE>(
     consumable: Consumable<VALUE>,
-    options?: Stream.Options<VALUE> & {
-      consumerDriver?: "slowest" | "fastest";
-    },
+    options?: Stream.FromOptions<VALUE>,
   ): Stream<VALUE> {
     const {
       firstConsumerJoin,
       fastestConsumerNext,
       slowestConsumerNext,
-      consumerDriver = "fastest",
+      sourceDriver = "fastest",
       terminate,
       ...rest
     } = options ?? {};
@@ -378,7 +376,7 @@ export class Stream<VALUE>
         );
         firstConsumerJoin?.(stream, consumer);
       },
-      ...(consumerDriver === "fastest"
+      ...(sourceDriver === "fastest"
         ? {
             fastestConsumerNext(stream, consumer) {
               consumableConsumer.next();
@@ -433,6 +431,10 @@ export namespace Stream {
     terminate?: (stream: Stream<VALUE>, reason: TerminateReason) => void;
   }
 
+  export interface FromOptions<VALUE> extends Stream.Options<VALUE> {
+    // Who drive the source
+    sourceDriver?: SourceDriver;
+  }
   export type Events<VALUE> = {
     $push?: Stream<VALUE>;
     $fastestConsumerNext?: Stream<Consumer<VALUE>>;

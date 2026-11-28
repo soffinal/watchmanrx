@@ -181,7 +181,7 @@ new Stream<VALUE>(options?: Stream.Options<VALUE>)
 **Static**
 
 ```ts
-Stream.from(consumable, options?: Stream.Options & { consumerDriver?: "slowest" | "fastest" }): Stream<VALUE>
+Stream.from(consumable, options?: Stream.Options & { sourceDriver?: "slowest" | "fastest" }): Stream<VALUE>
 ```
 
 Bridges any unicast `Consumable` into a multicast `Stream`.
