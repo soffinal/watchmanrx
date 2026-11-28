@@ -99,8 +99,8 @@ export abstract class Source<VALUE>
    * @param options if options.sync is true then it return values synchronously
    * @return values or promise of values or value or promise of value
    */
-  collect<N extends number = 1, SYNC extends boolean = false>(
-    n = 1 as N,
+  collect<N extends number, SYNC extends boolean = false>(
+    n = Infinity as N,
     options?: Source.CollectOptions<SYNC>,
   ): N extends 1
     ? SYNC extends false
